@@ -1,0 +1,25 @@
+:root {
+  --ink: #173a2e;
+  --muted: #647068;
+  --line: #d9ddd3;
+  --paper: #f7f7f0;
+  --soft: #e9ece2;
+  --orange: #ff784f;
+
+  --display: "Barlow Condensed", Impact, sans-serif;
+  --body: "DM Sans", system-ui, sans-serif;
+
+  --motion-fast: 140ms;
+  --motion-base: 220ms;
+  --motion-slow: 420ms;
+  --ease-standard: cubic-bezier(0.2, 0.75, 0.25, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family: var(--body);
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-weight: 450;
+}

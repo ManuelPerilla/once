@@ -44,6 +44,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       ROOT_PATH: /api
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      WIKIDATA_USER_AGENT: ${WIKIDATA_USER_AGENT:-Vertice/0.1 (https://github.com/MizunDev/vertice)}
 
   frontend:
     build:

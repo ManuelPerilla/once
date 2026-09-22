@@ -48,10 +48,14 @@ En móvil, las columnas se apilan, los filtros usan el ancho disponible y las ac
 
 Antes de dar una pantalla por terminada, hay que verla con nombres largos, logos que no cargan, listas vacías, filtros sin coincidencias y errores de servidor. También probarla con teclado y sin desbordamiento horizontal.
 
-## La experiencia pública pendiente
+## La experiencia pública
 
-La entrada debería responder a “¿qué está pasando en el fútbol que me interesa?”. Un partido relevante y sus relaciones ofrecen un punto de partida; el usuario decide cuánto profundizar.
+La primera superficie pública vive en `/explore`. La entrada responde a la idea original: un partido es una puerta hacia el resto del fútbol.
 
-El detalle de un encuentro podrá abrir camino hacia equipos, jugadores, estadísticas e historial. La información se agrupará por contexto y se mostrará de forma progresiva. Las tarjetas públicas, la navegación móvil y la forma de presentar resultados en vivo todavía no están decididas.
+La portada destaca encuentros reales almacenados y ofrece acceso a equipos y competiciones. El detalle de partido conserva el marcador como centro y añade contexto progresivamente cuando existe: fecha, temporada, fase, jornada, estadio, estadísticas, timeline de eventos y alineaciones.
 
-El administrador no debe presentarse como si esa experiencia ya estuviera construida.
+La cancha, el timeline, la forma reciente y otros elementos se dibujan con HTML/CSS/SVG. Las transiciones deben reforzar continuidad entre entidades, no ocultar esperas ni convertir cada navegación en un espectáculo.
+
+Los perfiles de equipo muestran encuentros relacionados y forma reciente. Las competiciones muestran sus ediciones. Los jugadores aparecen cuando alineaciones o eventos proporcionan contexto suficiente.
+
+La interfaz sigue la misma regla que el administrador: ausencia de datos no se reemplaza por métricas ficticias.

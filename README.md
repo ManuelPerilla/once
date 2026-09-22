@@ -2,7 +2,7 @@
 
 El fútbol tiene más conexiones de las que caben en un marcador. VÉRTICE es un proyecto personal para explorarlas: entrar por un partido, entender su contexto y seguir hacia un equipo, una competición o una historia que no conocías.
 
-Lo que puedes ejecutar hoy es **el administrador**, no la web pública. Es la mesa de trabajo donde se organiza la información que alimentará esa experiencia.
+Hoy puedes ejecutar dos superficies: **el administrador** en `/`, que organiza la información, y una **primera experiencia pública** en `/explore`, pensada para seguir conexiones entre partidos, equipos, competiciones y jugadores sin inventar datos que todavía no existen.
 
 ![Inicio del administrador de VÉRTICE](docs/admin-overview.webp)
 
@@ -10,7 +10,7 @@ Lo que puedes ejecutar hoy es **el administrador**, no la web pública. Es la me
 
 ## Qué hay funcionando
 
-El panel tiene cuatro espacios:
+El panel mantiene cuatro espacios principales y suma una mesa de fuentes en Inicio:
 
 | Espacio | Para qué sirve |
 | --- | --- |
@@ -21,7 +21,7 @@ El panel tiene cuatro espacios:
 
 La API comprueba las reglas de participación: tipo de equipo, país y confederación. Para registrar un partido, ambos equipos deben estar matriculados en el torneo. También permite guardar posesión y tiros a puerta, aunque todavía no hay un editor de estadísticas en el panel.
 
-El inicio muestra lo que hay en la base, sin actividad inventada. “En vivo” es un estado que se registra manualmente: todavía no existe un proveedor que actualice resultados.
+El inicio muestra lo que hay en la base, sin actividad inventada. También enseña mappings, media trazable y el estado de API-Football. “En vivo” sigue siendo un estado almacenado hasta que una competición se sincroniza explícitamente desde un proveedor configurado.
 
 ## Levantarlo en local
 
@@ -38,7 +38,7 @@ En Linux, usa `python3` si tu instalación no tiene el comando `python`.
 
 El asistente pide un usuario y una contraseña para el administrador y crea tu `.env`. No hay una contraseña universal. La contraseña del administrador se guarda como hash; la de PostgreSQL queda en ese archivo local, que no se sube a Git.
 
-Abre [localhost](http://localhost) e inicia sesión con lo que acabas de configurar. La documentación de la API está en [localhost/api/docs](http://localhost/api/docs).
+Abre [localhost](http://localhost) e inicia sesión con lo que acabas de configurar. La experiencia pública está en [localhost/explore](http://localhost/explore) y la documentación de la API en [localhost/api/docs](http://localhost/api/docs).
 
 Si ya tenías una base en Docker, conserva su contraseña cuando el asistente la pida. Si ya tienes `.env`, no vuelvas a ejecutar el asistente: revisa tu archivo con [.env.example](.env.example) como referencia.
 
@@ -75,17 +75,18 @@ docker compose logs api --tail=80
 
 ## Trabajar en el proyecto
 
-La API usa Python, FastAPI y SQLModel; la base es PostgreSQL 15. El administrador está hecho con React 19 y Vite, con un sistema visual propio en CSS. NGINX sirve el frontend y dirige `/api` al backend.
+La API usa Python, FastAPI y SQLModel; la base es PostgreSQL 15 y su evolución se versiona con Alembic. El administrador y la superficie pública están hechos con React 19 y Vite, con un sistema visual propio en CSS/SVG. NGINX sirve el frontend y dirige `/api` al backend.
 
 | Carpeta | Contenido |
 | --- | --- |
-| `frontend/src/` | Interfaz, llamadas a la API y filtros del administrador. |
+| `frontend/src/` | Administrador, experiencia pública, componentes de fútbol, motion y llamadas a la API. |
 | `frontend/public/` | Tipografías y renders locales. |
-| `src/` | Modelos, rutas, autenticación, configuración y datos iniciales. |
+| `src/` | Modelos, rutas, autenticación, proveedores, sincronización, migraciones de arranque y datos iniciales. |
 | `tests/` | Pruebas de la API y de la configuración. |
 | `frontend/e2e/` | Recorridos de navegador contra la aplicación real. |
 | `scripts/` | Comprobación de arranque a través de NGINX. |
-| `docs/` | Decisiones de producto, experiencia y datos. |
+| `migrations/` | Revisiones Alembic para bases nuevas y existentes. |
+| `docs/` | Decisiones de producto, experiencia, datos y proveedores. |
 
 ### Frontend con recarga automática
 
@@ -121,7 +122,7 @@ npm run build
 
 Las pruebas de Python usan SQLite en memoria por defecto. `TEST_DATABASE_URL` permite probar PostgreSQL, pero debe apuntar a una base desechable: las pruebas crean y eliminan tablas. No uses tu base de trabajo.
 
-GitHub Actions comprueba la API contra PostgreSQL, las pruebas y la compilación del frontend, y el conjunto Docker con NGINX. Los recorridos de navegador cubren login, edición, matrículas, registro de partidos, persistencia de sesión y móvil.
+GitHub Actions comprueba la API contra PostgreSQL, la adopción de una base legacy con Alembic, las pruebas y compilación del frontend, y el conjunto Docker con NGINX. Los recorridos de navegador cubren login, edición, matrículas, partidos, persistencia de sesión, móvil y acceso público sin sesión.
 
 ## Configuración y despliegue
 
@@ -137,10 +138,16 @@ docker compose --profile admin up -d pgadmin
 
 Quedará en [localhost:5050](http://localhost:5050). Para conectarlo a la base, el servidor es `db`, el puerto `5432`, el usuario `postgres` y la base `vertice_db`.
 
-## Lo que sigue
+## Experiencia pública y fuentes
 
-La experiencia pública aún está por construir. Antes de llenarla de pantallas, faltan fechas y contexto de los encuentros, ediciones y fases de competiciones, y una fuente de datos verificable. Los jugadores, las alineaciones, los eventos y la actualización automática también quedan por delante.
+`/explore` ya permite entrar por un encuentro y continuar hacia equipos, competiciones y jugadores. Cuando existen datos, el partido puede mostrar fecha, temporada, fase, jornada, estadio, estadísticas, eventos y alineaciones. Los elementos visuales de cancha, timeline, forma reciente y conexiones se generan con HTML/CSS/SVG.
 
-La intención es empezar por el fútbol colombiano y las competiciones de CONMEBOL, sin cerrar el modelo a otros países. Esto también es un proyecto para aprender construyendo: las decisiones deben poder entenderse y cambiar cuando haga falta.
+VÉRTICE conserva IDs internos. `ProviderMapping` relaciona esos registros con IDs externos, `ProviderSnapshot` conserva la última observación cruda relevante de una fuente y `MediaAsset` guarda procedencia, autoría y licencia de recursos visuales.
 
-[Visión del producto](docs/vision.md) · [Experiencia y diseño](docs/ux.md) · [Modelo de datos](docs/data.md)
+API-Football se puede configurar con `API_FOOTBALL_KEY`: el administrador permite previsualizar fixtures sin escribir, crear mappings, sincronizar una competición/temporada y profundizar un partido con eventos, alineaciones, jugadores y estadísticas. Los datos importados quedan marcados por fuente para que una nueva sincronización no borre registros editoriales/manuales.
+
+Wikidata y Wikimedia Commons se pueden usar para importar una imagen principal con QID conservando URL original, autor, crédito y licencia. El archivo no se descarga automáticamente.
+
+La intención sigue siendo empezar por el fútbol colombiano y las competiciones de CONMEBOL, sin cerrar el modelo a otros países ni entregar el modelo a un único proveedor.
+
+[Visión del producto](docs/vision.md) · [Experiencia y diseño](docs/ux.md) · [Modelo de datos](docs/data.md) · [Fuentes y proveedores](docs/providers.md)

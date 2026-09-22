@@ -40,7 +40,8 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
     (item) => item.name === "vertice_token",
   );
   expect(cookie?.httpOnly).toBe(true);
-  await expect(page.locator("form")).toHaveCount(0);
+  await expect(page.getByLabel("Usuario", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Contraseña", { exact: true })).toHaveCount(0);
   await expectArtwork(page, "stadium");
   await expect(
     page.getByRole("navigation", { name: "Navegación principal" }),

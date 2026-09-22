@@ -1,5 +1,5 @@
 from sqlmodel import Session, select
-from src.main import Confederacion, Competicion, Equipo, TipoCompeticion, TipoEquipo
+from src.models import Confederacion, Competicion, Equipo, TipoCompeticion, TipoEquipo
 
 def ejecutar_seed(session: Session):
     # Verificamos si ya existen datos para evitar duplicados

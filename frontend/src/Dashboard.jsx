@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiCollection, apiRequest } from "./api";
+import { runViewTransition } from "./lib/viewTransition";
 import {
   EMPTY_FILTERS,
   COMPETITION_TYPES,
@@ -9,14 +10,16 @@ import {
   normalize,
 } from "./catalogFilters";
 import { summarizeAdmin } from "./adminSummary";
+import { workspaceNavigation, workspaceSections } from "./admin/sections";
+import { EnrollmentView } from "./admin/EnrollmentView";
+import { MatchesView } from "./admin/MatchesView";
+import { CatalogView } from "./admin/CatalogView";
+import { HomeView } from "./admin/HomeView";
 import {
   Brand,
   Icon,
-  Crest,
-  EmptyState,
   Modal,
   Field,
-  MatchRow,
   SectionArt,
 } from "./AdminUI";
 import "./admin.css";
@@ -24,6 +27,8 @@ import "./admin.css";
 export default function Dashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState("inicio");
+  const changeSection = (nextTab) =>
+    runViewTransition(() => setActiveTab(nextTab));
 
   const [catalogTab, setCatalogTab] = useState("competiciones");
   const [matchFilter, setMatchFilter] = useState("");
@@ -42,6 +47,9 @@ export default function Dashboard() {
   const [confederaciones, setConfederaciones] = useState([]);
   const [competiciones, setCompeticiones] = useState([]);
   const [equipos, setEquipos] = useState([]);
+  const [temporadas, setTemporadas] = useState([]);
+  const [fases, setFases] = useState([]);
+  const [estadios, setEstadios] = useState([]);
 
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
 
@@ -73,6 +81,11 @@ export default function Dashboard() {
   });
   const [formPartido, setFormPartido] = useState({
     competicion_id: "",
+    temporada_id: "",
+    fase_id: "",
+    estadio_id: "",
+    fecha: "",
+    jornada: "",
     equipo_local_id: "",
     equipo_visitante_id: "",
     marcador_local: 0,
@@ -104,7 +117,7 @@ export default function Dashboard() {
 
   const clearSession = () => {
     setIsLoggedIn(false);
-    setActiveTab("inicio");
+    changeSection("inicio");
     setCatalogsReady(false);
     setMatchesReady(false);
     setShowConfForm(false);
@@ -117,6 +130,9 @@ export default function Dashboard() {
     setConfederaciones([]);
     setCompeticiones([]);
     setEquipos([]);
+    setTemporadas([]);
+    setFases([]);
+    setEstadios([]);
     setLoginForm((form) => ({ ...form, password: "" }));
   };
 
@@ -144,14 +160,20 @@ export default function Dashboard() {
 
   const fetchCatalogs = async () => {
     try {
-      const [confs, comps, eqs] = await Promise.all([
+      const [confs, comps, eqs, seasons, stages, venues] = await Promise.all([
         apiCollection("/confederaciones/"),
         apiCollection("/competiciones/"),
         apiCollection("/equipos/"),
+        apiCollection("/temporadas/"),
+        apiCollection("/fases/"),
+        apiCollection("/estadios/"),
       ]);
       setConfederaciones(confs);
       setCompeticiones(comps);
       setEquipos(eqs);
+      setTemporadas(seasons);
+      setFases(stages);
+      setEstadios(venues);
       setCatalogsReady(true);
       setUpdatedAt(new Date());
     } catch (error) {
@@ -382,6 +404,13 @@ export default function Dashboard() {
         method: "POST",
         body: {
           competicion_id: parseInt(formPartido.competicion_id),
+          temporada_id: parseInt(formPartido.temporada_id) || null,
+          fase_id: parseInt(formPartido.fase_id) || null,
+          estadio_id: parseInt(formPartido.estadio_id) || null,
+          fecha: formPartido.fecha
+            ? new Date(formPartido.fecha).toISOString()
+            : null,
+          jornada: formPartido.jornada.trim() || null,
           equipo_local_id: parseInt(formPartido.equipo_local_id),
           equipo_visitante_id: parseInt(formPartido.equipo_visitante_id),
           marcador_local: parseInt(formPartido.marcador_local),
@@ -393,6 +422,11 @@ export default function Dashboard() {
       setShowMatchForm(false);
       setFormPartido({
         competicion_id: "",
+        temporada_id: "",
+        fase_id: "",
+        estadio_id: "",
+        fecha: "",
+        jornada: "",
         equipo_local_id: "",
         equipo_visitante_id: "",
         marcador_local: 0,
@@ -446,6 +480,19 @@ export default function Dashboard() {
       e.pais.toLowerCase().includes(filtroPais.toLowerCase()),
   );
 
+  const temporadasDisponiblesParaPartido = formPartido.competicion_id
+    ? temporadas.filter(
+        (season) =>
+          String(season.competicion_id) === String(formPartido.competicion_id),
+      )
+    : [];
+  const fasesDisponiblesParaPartido = formPartido.temporada_id
+    ? fases.filter(
+        (stage) =>
+          String(stage.temporada_id) === String(formPartido.temporada_id),
+      )
+    : [];
+
   // FILTRO DINÁMICO PARA PARTIDOS (La Arena)
   const equiposDisponiblesParaPartido = formPartido.competicion_id
     ? equipos.filter((eq) =>
@@ -495,69 +542,7 @@ export default function Dashboard() {
 
   const summary = summarizeAdmin(competiciones, equipos, partidos);
   const ready = catalogsReady && matchesReady;
-  const sections = {
-    inicio: {
-      label: "Inicio",
-      eyebrow: "EL LADO DEL FÚTBOL QUE LO HACE POSIBLE",
-      title: (
-        <>
-          El juego,
-          <br />
-          <em>en orden.</em>
-        </>
-      ),
-      description:
-        "Tú mueves las piezas. Aquí conectas competiciones, equipos y encuentros para que todo lo demás suceda.",
-      action: "Explorar el catálogo",
-      icon: "grid",
-    },
-    ecosistema: {
-      label: "Catálogo",
-      eyebrow: "02 / EL ARCHIVO DEL FÚTBOL",
-      title: (
-        <>
-          El mapa
-          <br />
-          <em>del juego.</em>
-        </>
-      ),
-      description:
-        "Da forma a tu catálogo y encuentra lo que necesitas sin perder de vista el conjunto.",
-      action: "Añadir registro",
-      icon: "plus",
-    },
-    matriculas: {
-      label: "Matrículas",
-      eyebrow: "03 / CONEXIONES QUE HACEN EQUIPO",
-      title: (
-        <>
-          Cada equipo,
-          <br />
-          <em>en su lugar.</em>
-        </>
-      ),
-      description:
-        "Conecta equipos y competiciones. Revisa las matrículas existentes y completa las que faltan.",
-      action: "Crear matrícula",
-      icon: "link",
-    },
-    arena: {
-      label: "Partidos",
-      eyebrow: "04 / DEL ENCUENTRO AL MARCADOR",
-      title: (
-        <>
-          Que ruede
-          <br />
-          <em>el balón.</em>
-        </>
-      ),
-      description:
-        "Registra los partidos de tus competiciones y consulta el estado de cada encuentro.",
-      action: "Registrar partido",
-      icon: "plus",
-    },
-  };
-  const section = sections[activeTab];
+  const section = workspaceSections[activeTab];
   const closeForms = () => {
     setMensajeApi(null);
     setShowConfForm(false);
@@ -597,6 +582,11 @@ export default function Dashboard() {
     if (type === "partidos") {
       setFormPartido({
         competicion_id: "",
+        temporada_id: "",
+        fase_id: "",
+        estadio_id: "",
+        fecha: "",
+        jornada: "",
         equipo_local_id: "",
         equipo_visitante_id: "",
         marcador_local: 0,
@@ -609,12 +599,12 @@ export default function Dashboard() {
   const goCatalog = (type) => {
     clearFilters();
     setCatalogTab(type);
-    setActiveTab("ecosistema");
+    changeSection("ecosistema");
   };
   const goEnrollments = (freeOnly = false) => {
     setOnlyFree(freeOnly);
     setEnrollmentSearch("");
-    setActiveTab("matriculas");
+    changeSection("matriculas");
   };
   const heroAction = () => {
     if (activeTab === "inicio") goCatalog("competiciones");
@@ -822,20 +812,15 @@ export default function Dashboard() {
       </header>
       <div className="v-navigation">
         <nav className="v-nav" aria-label="Navegación principal">
-          {[
-            ["inicio", "01"],
-            ["ecosistema", "02"],
-            ["matriculas", "03"],
-            ["arena", "04"],
-          ].map(([tab, number]) => (
+          {workspaceNavigation.map(([tab, number]) => (
             <button
               key={tab}
-              aria-label={sections[tab].label}
+              aria-label={workspaceSections[tab].label}
               aria-current={activeTab === tab ? "page" : undefined}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => changeSection(tab)}
             >
               <small>{number}</small>
-              <span>{sections[tab].label}</span>
+              <span>{workspaceSections[tab].label}</span>
               <Icon name="arrow" />
             </button>
           ))}
@@ -907,801 +892,71 @@ export default function Dashboard() {
           </section>
 
           {activeTab === "inicio" && (
-            <>
-              <div className="v-score-strip">
-                <div className="v-score-label">
-                  <span className="v-eyebrow">TU UNIVERSO</span>
-                  <span>
-                    En cifras
-                    <Icon name="arrow" />
-                  </span>
-                </div>
-                <div className="v-metrics">
-                  {[
-                    {
-                      title: "Competiciones",
-                      value: competiciones.length,
-                      caption: "Ligas y copas en tu catálogo",
-                      icon: "trophy",
-                      action: () => goCatalog("competiciones"),
-                    },
-                    {
-                      title: "Equipos",
-                      value: equipos.length,
-                      caption: "Clubes y selecciones",
-                      icon: "shield",
-                      action: () => goCatalog("equipos"),
-                    },
-                    {
-                      title: "Por jugar",
-                      value: summary.scheduled.length,
-                      caption: "Partidos con estado programado",
-                      icon: "pitch",
-                      action: () => {
-                        setMatchFilter("programado");
-                        setActiveTab("arena");
-                      },
-                    },
-                    {
-                      title: "Sin matrícula",
-                      value: summary.unregistered.length,
-                      caption: "Equipos sin competición",
-                      icon: "link",
-                      warm: true,
-                      action: () => goEnrollments(true),
-                    },
-                  ].map((metric, index) => (
-                    <button
-                      key={metric.title}
-                      className={`v-metric ${metric.warm ? "v-metric-warm" : ""}`}
-                      onClick={metric.action}
-                    >
-                      <span className="v-metric-top">
-                        <span className="v-metric-number">0{index + 1} /</span>
-                        {metric.title}
-                        <span className="v-metric-icon">
-                          <Icon name={metric.icon} />
-                        </span>
-                      </span>
-                      <strong>{ready ? metric.value : "—"}</strong>
-                      <small>{metric.caption}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {!ready ? (
-                <div className="v-panel">
-                  <EmptyState title="Cargando tu información…">
-                    El resumen aparecerá cuando termine la consulta del
-                    catálogo.
-                  </EmptyState>
-                </div>
-              ) : (
-                <div className="v-overview">
-                  <div className="v-panel v-match-board">
-                    <div className="v-panel-head">
-                      <div>
-                        <span className="v-eyebrow">
-                          01 / REGISTRO DE PARTIDOS
-                        </span>
-                        <h2>El juego, en marcha.</h2>
-                        <p>
-                          Los últimos encuentros que registraste, de un vistazo.
-                        </p>
-                      </div>
-                      <button
-                        className="v-text-btn"
-                        onClick={() => {
-                          setMatchFilter("");
-                          setActiveTab("arena");
-                        }}
-                      >
-                        Ver todos
-                        <Icon name="arrow" />
-                      </button>
-                    </div>
-                    {summary.recent.length ? (
-                      summary.recent.map((match) => (
-                        <MatchRow key={match.id} match={match} />
-                      ))
-                    ) : (
-                      <EmptyState
-                        title="Tu próximo partido empieza aquí"
-                        icon="pitch"
-                        action="Registrar primer partido"
-                        onAction={() => {
-                          setActiveTab("arena");
-                          openCreate("partidos");
-                        }}
-                      >
-                        Cuando registres encuentros, podrás seguir sus estados
-                        desde este inicio.
-                      </EmptyState>
-                    )}
-                  </div>
-                  <div className="v-stack">
-                    <div className="v-panel v-task-board">
-                      <div className="v-panel-head">
-                        <div>
-                          <span className="v-eyebrow">02 / PUESTA A PUNTO</span>
-                          <h2>El siguiente movimiento.</h2>
-                          <p>Lo que necesita tu atención.</p>
-                        </div>
-                        <Icon name="clock" />
-                      </div>
-                      {summary.unregistered.length > 0 && (
-                        <button
-                          className="v-attention"
-                          onClick={() => goEnrollments(true)}
-                        >
-                          <span className="v-attention-icon">
-                            <Icon name="link" />
-                          </span>
-                          <span>
-                            <strong>
-                              {summary.unregistered.length}{" "}
-                              {summary.unregistered.length === 1
-                                ? "equipo sin matrícula"
-                                : "equipos sin matrícula"}
-                            </strong>
-                            <small>
-                              Revisa en qué competiciones van a participar.
-                            </small>
-                          </span>
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      {summary.incomplete.length > 0 && (
-                        <button
-                          className="v-attention"
-                          onClick={() => {
-                            setMatchFilter("incompletos");
-                            setActiveTab("arena");
-                          }}
-                        >
-                          <span className="v-attention-icon">
-                            <Icon name="alert" />
-                          </span>
-                          <span>
-                            <strong>
-                              {summary.incomplete.length}{" "}
-                              {summary.incomplete.length === 1
-                                ? "partido incompleto"
-                                : "partidos incompletos"}
-                            </strong>
-                            <small>
-                              Les falta un equipo o una competición.
-                            </small>
-                          </span>
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      {!competiciones.length && (
-                        <button
-                          className="v-attention"
-                          onClick={() => {
-                            goCatalog("competiciones");
-                            openCreate("competiciones");
-                          }}
-                        >
-                          <span className="v-attention-icon">
-                            <Icon name="trophy" />
-                          </span>
-                          <span>
-                            <strong>Crea tu primera competición</strong>
-                            <small>
-                              El punto de partida de tus próximos encuentros.
-                            </small>
-                          </span>
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      {!equipos.length && (
-                        <button
-                          className="v-attention"
-                          onClick={() => {
-                            goCatalog("equipos");
-                            openCreate("equipos");
-                          }}
-                        >
-                          <span className="v-attention-icon">
-                            <Icon name="shield" />
-                          </span>
-                          <span>
-                            <strong>Añade los primeros equipos</strong>
-                            <small>
-                              Construye el catálogo de clubes y selecciones.
-                            </small>
-                          </span>
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      {!summary.unregistered.length &&
-                        !summary.incomplete.length &&
-                        competiciones.length > 0 &&
-                        equipos.length > 0 && (
-                          <div className="v-pending-clear">
-                            <Icon name="check" />
-                            Matrículas y referencias de partidos al día.
-                          </div>
-                        )}
-                    </div>
-                    <div className="v-panel">
-                      <div className="v-panel-head">
-                        <div>
-                          <span className="v-eyebrow">03 / ECOSISTEMA</span>
-                          <h2>Territorio de juego.</h2>
-                          <p>Equipos matriculados en cada torneo.</p>
-                        </div>
-                      </div>
-                      {summary.rosters.length ? (
-                        summary.rosters.slice(0, 3).map((comp) => (
-                          <div key={comp.id} className="v-roster-row">
-                            <Crest small src={comp.logo} name={comp.nombre} />
-                            <div>
-                              <strong>{comp.nombre}</strong>
-                              <small>{comp.pais}</small>
-                            </div>
-                            <span>
-                              {comp.teamCount}{" "}
-                              {comp.teamCount === 1 ? "equipo" : "equipos"}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="El mapa está por comenzar"
-                          icon="globe"
-                        >
-                          Tus competiciones aparecerán aquí.
-                        </EmptyState>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="v-quick-actions">
-                <button
-                  className="v-quick-action"
-                  onClick={() => {
-                    goCatalog("equipos");
-                    openCreate("equipos");
-                  }}
-                >
-                  <Icon name="shield" />
-                  <span>
-                    <small>01 / AMPLÍA EL CATÁLOGO</small>
-                    <strong>Añadir equipo</strong>
-                    <em>Un nuevo escudo entra en juego.</em>
-                  </span>
-                  <Icon name="arrow" />
-                </button>
-                <button
-                  className="v-quick-action"
-                  onClick={() => goEnrollments()}
-                >
-                  <Icon name="link" />
-                  <span>
-                    <small>02 / CONECTA LAS PIEZAS</small>
-                    <strong>Gestionar matrículas</strong>
-                    <em>Cada equipo, en su competición.</em>
-                  </span>
-                  <Icon name="arrow" />
-                </button>
-                <button
-                  className="v-quick-action"
-                  onClick={() => {
-                    setActiveTab("arena");
-                    openCreate("partidos");
-                  }}
-                >
-                  <Icon name="pitch" />
-                  <span>
-                    <small>03 / ABRE LA CANCHA</small>
-                    <strong>Registrar partido</strong>
-                    <em>El próximo encuentro empieza aquí.</em>
-                  </span>
-                  <Icon name="arrow" />
-                </button>
-              </div>
-            </>
+            <HomeView
+              ready={ready}
+              competitions={competiciones}
+              teams={equipos}
+              summary={summary}
+              goCatalog={goCatalog}
+              goEnrollments={goEnrollments}
+              setMatchFilter={setMatchFilter}
+              changeSection={changeSection}
+              openCreate={openCreate}
+            />
           )}
 
           {activeTab === "ecosistema" && (
-            <section
-              className="v-panel v-catalog-panel"
-              aria-label="Catálogo del ecosistema"
-            >
-              <div
-                className="v-tabs"
-                role="tablist"
-                aria-label="Tipo de catálogo"
-              >
-                {[
-                  ["competiciones", "Competiciones", competiciones.length],
-                  ["equipos", "Equipos", equipos.length],
-                  [
-                    "confederaciones",
-                    "Confederaciones",
-                    confederaciones.length,
-                  ],
-                ].map(([type, label, total]) => (
-                  <button
-                    role="tab"
-                    id={`tab-${type}`}
-                    aria-controls="catalog-panel"
-                    aria-selected={catalogTab === type}
-                    tabIndex={catalogTab === type ? 0 : -1}
-                    key={type}
-                    onKeyDown={(e) => {
-                      const order = [
-                        "competiciones",
-                        "equipos",
-                        "confederaciones",
-                      ];
-                      if (
-                        !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
-                          e.key,
-                        )
-                      )
-                        return;
-                      e.preventDefault();
-                      const index =
-                        e.key === "Home"
-                          ? 0
-                          : e.key === "End"
-                            ? 2
-                            : (order.indexOf(type) +
-                                (e.key === "ArrowRight" ? 1 : -1) +
-                                3) %
-                              3;
-                      setCatalogTab(order[index]);
-                      clearFilters();
-                      document.getElementById(`tab-${order[index]}`)?.focus();
-                    }}
-                    onClick={() => {
-                      setCatalogTab(type);
-                      clearFilters();
-                    }}
-                  >
-                    {label}
-                    <small>{catalogsReady ? total : "—"}</small>
-                  </button>
-                ))}
-              </div>
-              <div
-                role="tabpanel"
-                id="catalog-panel"
-                aria-labelledby={`tab-${catalogTab}`}
-              >
-                <div className="v-filter-bar">
-                  <label className="v-field v-search">
-                    <span>Buscar por nombre</span>
-                    <input
-                      type="search"
-                      placeholder={`Buscar ${catalogTab}…`}
-                      value={catalogFilters.search}
-                      onChange={(e) => updateFilter("search", e.target.value)}
-                    />
-                  </label>
-                  {catalogTab !== "confederaciones" && (
-                    <>
-                      <Field label="Confederación">
-                        <select
-                          value={catalogFilters.confederation}
-                          onChange={(e) =>
-                            updateFilter("confederation", e.target.value)
-                          }
-                        >
-                          <option value="">Todas las confederaciones</option>
-                          {confederaciones.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.nombre}
-                            </option>
-                          ))}
-                          <option value="unassigned">
-                            Sin confederación / globales
-                          </option>
-                        </select>
-                      </Field>
-                      <Field label="País / ámbito">
-                        <select
-                          value={catalogFilters.country}
-                          onChange={(e) =>
-                            updateFilter("country", e.target.value)
-                          }
-                        >
-                          <option value="">Todos los países y ámbitos</option>
-                          {countries.map((country) => (
-                            <option key={country} value={country}>
-                              {country}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    </>
-                  )}
-                  {catalogTab === "competiciones" && (
-                    <Field label="Tipo de competición">
-                      <select
-                        value={catalogFilters.competitionType}
-                        onChange={(e) =>
-                          updateFilter("competitionType", e.target.value)
-                        }
-                      >
-                        <option value="">Todos los tipos</option>
-                        {Object.entries(COMPETITION_TYPES).map(
-                          ([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                    </Field>
-                  )}
-                  {catalogTab === "equipos" && (
-                    <Field label="Matriculados en">
-                      <select
-                        value={catalog.selectedCompetition}
-                        onChange={(e) =>
-                          updateFilter("competition", e.target.value)
-                        }
-                      >
-                        <option value="">Cualquier matrícula</option>
-                        {catalog.availableCompetitions.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  )}
-                </div>
-                <div className="v-catalog-toolbar">
-                  <p role="status">
-                    {catalogsReady
-                      ? `${catalogItems.length} de ${catalogTotal} ${catalogTab}`
-                      : "Cargando catálogo…"}
-                  </p>
-                  {catalogTab === "equipos" && (
-                    <div
-                      className="v-segments"
-                      role="group"
-                      aria-label="Tipo de equipo"
-                    >
-                      {[
-                        ["", "Todos"],
-                        ["club", "Clubes"],
-                        ["seleccion", "Selecciones"],
-                      ].map(([value, label]) => (
-                        <button
-                          key={value}
-                          aria-pressed={catalogFilters.teamType === value}
-                          onClick={() => updateFilter("teamType", value)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <button className="v-text-btn" onClick={clearFilters}>
-                    Limpiar filtros
-                  </button>
-                </div>
-                {catalogsReady && catalogItems.length === 0 && (
-                  <EmptyState
-                    title={
-                      catalogTotal
-                        ? "No encontramos coincidencias"
-                        : "Tu catálogo está por comenzar"
-                    }
-                    action={
-                      catalogTotal
-                        ? "Limpiar filtros"
-                        : "Añadir primer registro"
-                    }
-                    onAction={
-                      catalogTotal ? clearFilters : () => openCreate(catalogTab)
-                    }
-                  >
-                    {catalogTotal
-                      ? "Prueba con otro nombre o ajusta los filtros."
-                      : "Crea las entidades que organizarán tu universo futbolístico."}
-                  </EmptyState>
-                )}
-                {catalogItems.map((item) => (
-                  <article className="v-catalog-row" key={item.id}>
-                    <span
-                      className="v-record-id"
-                      aria-label={`Registro ${item.id}`}
-                    >
-                      #{String(item.id).padStart(3, "0")}
-                    </span>
-                    <Crest src={item.logo} name={item.nombre} />
-                    <div className="v-entity-name">
-                      <strong>{item.nombre}</strong>
-                      <span>
-                        {catalogTab === "confederaciones"
-                          ? `${competiciones.filter((c) => c.confederacion_id === item.id).length} competiciones · ${equipos.filter((eq) => eq.confederacion_id === item.id).length} equipos`
-                          : `${catalogTab === "equipos" ? (item.tipo === "seleccion" ? "Selección" : "Club") : COMPETITION_TYPES[item.tipo]} · ${item.pais} · ${confederaciones.find((c) => c.id === item.confederacion_id)?.nombre || "Sin confederación"}`}
-                      </span>
-                      {catalogTab === "equipos" && (
-                        <div className="v-entity-tags">
-                          {item.competiciones?.length ? (
-                            item.competiciones.map((comp) => (
-                              <span key={comp.id}>{comp.nombre}</span>
-                            ))
-                          ) : (
-                            <span>Sin matrícula</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="v-entity-actions">
-                      {catalogTab === "competiciones" && (
-                        <button
-                          className="v-text-btn"
-                          onClick={() => {
-                            setCatalogFilters((current) => ({
-                              ...current,
-                              search: "",
-                              teamType: "",
-                              competition: String(item.id),
-                            }));
-                            setCatalogTab("equipos");
-                          }}
-                        >
-                          Ver equipos
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      {catalogTab === "confederaciones" && (
-                        <button
-                          className="v-text-btn"
-                          onClick={() => {
-                            setCatalogFilters({
-                              ...EMPTY_FILTERS,
-                              confederation: String(item.id),
-                            });
-                            setCatalogTab("competiciones");
-                          }}
-                        >
-                          Explorar
-                          <Icon name="arrow" />
-                        </button>
-                      )}
-                      <button
-                        className="v-icon-btn"
-                        aria-label={`Editar ${item.nombre}`}
-                        onClick={() => {
-                          closeForms();
-                          (catalogTab === "confederaciones"
-                            ? handleEditConf
-                            : catalogTab === "competiciones"
-                              ? handleEditComp
-                              : handleEditEq)(item);
-                        }}
-                      >
-                        <Icon name="edit" />
-                      </button>
-                      <button
-                        className="v-icon-btn v-danger"
-                        aria-label={`Eliminar ${item.nombre}`}
-                        onClick={() =>
-                          (catalogTab === "confederaciones"
-                            ? handleEliminarConf
-                            : catalogTab === "competiciones"
-                              ? handleEliminarComp
-                              : handleEliminarEq)(item.id)
-                        }
-                      >
-                        <Icon name="trash" />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
+            <CatalogView
+              catalogTab={catalogTab}
+              setCatalogTab={setCatalogTab}
+              catalogsReady={catalogsReady}
+              competitions={competiciones}
+              teams={equipos}
+              confederations={confederaciones}
+              filters={catalogFilters}
+              setFilters={setCatalogFilters}
+              updateFilter={updateFilter}
+              countries={countries}
+              catalog={catalog}
+              items={catalogItems}
+              total={catalogTotal}
+              clearFilters={clearFilters}
+              openCreate={openCreate}
+              closeForms={closeForms}
+              onEditConfederation={handleEditConf}
+              onEditCompetition={handleEditComp}
+              onEditTeam={handleEditEq}
+              onDeleteConfederation={handleEliminarConf}
+              onDeleteCompetition={handleEliminarComp}
+              onDeleteTeam={handleEliminarEq}
+            />
           )}
 
           {activeTab === "matriculas" && (
-            <div className="v-work-grid">
-              <section className="v-panel">
-                <div className="v-panel-head">
-                  <div>
-                    <span className="v-eyebrow">01 / NUEVA CONEXIÓN</span>
-                    <h2>Nueva matrícula</h2>
-                    <p>Selecciona la competición y después el equipo.</p>
-                  </div>
-                  <Icon name="link" />
-                </div>
-                <form className="v-form" onSubmit={handleMatricular}>
-                  <Field
-                    label={
-                      <span className="v-step-title">
-                        <span>1</span>Competición
-                      </span>
-                    }
-                  >
-                    <select
-                      id="matricula-competition"
-                      value={formMatricula.competicion_id}
-                      onChange={(e) =>
-                        setFormMatricula({
-                          competicion_id: e.target.value,
-                          equipo_id: "",
-                        })
-                      }
-                      required
-                    >
-                      <option value="">Elige una competición</option>
-                      {competiciones.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field
-                    label={
-                      <span className="v-step-title">
-                        <span>2</span>Equipo compatible
-                      </span>
-                    }
-                  >
-                    <select
-                      disabled={!formMatricula.competicion_id}
-                      value={formMatricula.equipo_id}
-                      onChange={(e) =>
-                        setFormMatricula({
-                          ...formMatricula,
-                          equipo_id: e.target.value,
-                        })
-                      }
-                      required
-                    >
-                      <option value="">Elige un equipo</option>
-                      {equiposDisponiblesParaMatricula.map((eq) => (
-                        <option key={eq.id} value={eq.id}>
-                          {eq.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <p className="v-notice">
-                    Solo aparecen equipos compatibles con el tipo, el país y la
-                    confederación del torneo.
-                  </p>
-                  {formMatricula.competicion_id &&
-                    !equiposDisponiblesParaMatricula.length && (
-                      <p className="v-info-note">
-                        No hay equipos disponibles. Puede que ya estén
-                        matriculados o que necesites añadir un equipo compatible
-                        al catálogo.
-                      </p>
-                    )}
-                  <button
-                    disabled={loading || !formMatricula.equipo_id}
-                    className="v-btn v-btn-dark"
-                  >
-                    {loading ? "Guardando…" : "Confirmar matrícula"}
-                    <Icon name="check" />
-                  </button>
-                </form>
-              </section>
-              <section className="v-panel">
-                <div className="v-panel-head">
-                  <div>
-                    <span className="v-eyebrow">02 / PARTICIPACIÓN</span>
-                    <h2>Registro de matrículas</h2>
-                    <p>{enrollmentItems.length} equipos en esta vista.</p>
-                  </div>
-                </div>
-                <div className="v-filter-bar">
-                  <Field label="Buscar equipo">
-                    <input
-                      type="search"
-                      value={enrollmentSearch}
-                      onChange={(e) => setEnrollmentSearch(e.target.value)}
-                      placeholder="Nombre del equipo…"
-                    />
-                  </Field>
-                  <label className="v-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={onlyFree}
-                      onChange={(e) => setOnlyFree(e.target.checked)}
-                    />
-                    Solo sin matrícula
-                  </label>
-                </div>
-                <div className="v-registration-list">
-                  {enrollmentItems.map((eq) => (
-                    <article className="v-catalog-row" key={eq.id}>
-                      <Crest name={eq.nombre} src={eq.logo} />
-                      <div className="v-entity-name">
-                        <strong>{eq.nombre}</strong>
-                        <span>
-                          {eq.tipo === "seleccion" ? "Selección" : "Club"} ·{" "}
-                          {eq.pais}
-                        </span>
-                        <div className="v-entity-tags">
-                          {eq.competiciones?.length ? (
-                            eq.competiciones.map((c) => (
-                              <span key={c.id}>{c.nombre}</span>
-                            ))
-                          ) : (
-                            <span>Sin matrícula</span>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                  {!enrollmentItems.length && (
-                    <EmptyState title="Sin equipos en esta vista" icon="link">
-                      Ajusta la búsqueda o añade equipos desde el catálogo.
-                    </EmptyState>
-                  )}
-                </div>
-              </section>
-            </div>
+            <EnrollmentView
+              form={formMatricula}
+              setForm={setFormMatricula}
+              competitions={competiciones}
+              availableTeams={equiposDisponiblesParaMatricula}
+              loading={loading}
+              onEnroll={handleMatricular}
+              items={enrollmentItems}
+              search={enrollmentSearch}
+              setSearch={setEnrollmentSearch}
+              onlyFree={onlyFree}
+              setOnlyFree={setOnlyFree}
+            />
           )}
 
           {activeTab === "arena" && (
-            <section aria-label="Registro de partidos">
-              <div className="v-match-filters">
-                <div
-                  className="v-segments"
-                  role="group"
-                  aria-label="Estado del partido"
-                >
-                  {[
-                    ["", "Todos"],
-                    ["programado", "Programados"],
-                    ["en vivo", "En vivo"],
-                    ["finalizado", "Finalizados"],
-                    ...(summary.incomplete.length
-                      ? [["incompletos", "Incompletos"]]
-                      : []),
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      aria-pressed={matchFilter === value}
-                      onClick={() => setMatchFilter(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <span className="v-updated" role="status">
-                  {matchItems.length} partidos
-                </span>
-              </div>
-              {matchItems.length ? (
-                <div className="v-match-grid">
-                  {matchItems.map((match) => (
-                    <MatchRow
-                      key={match.id}
-                      match={match}
-                      onDelete={() => handleEliminarPartido(match.id)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="v-panel">
-                  <EmptyState
-                    title="No hay partidos en esta vista"
-                    icon="pitch"
-                    action="Registrar partido"
-                    onAction={() => openCreate("partidos")}
-                  >
-                    Registra un encuentro o selecciona otro estado para
-                    consultar tus partidos.
-                  </EmptyState>
-                </div>
-              )}
-            </section>
+            <MatchesView
+              filter={matchFilter}
+              setFilter={setMatchFilter}
+              incompleteCount={summary.incomplete.length}
+              matches={matchItems}
+              onDelete={handleEliminarPartido}
+              onCreate={() => openCreate("partidos")}
+            />
           )}
           <footer className="v-footer">
             <Brand />

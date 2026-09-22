@@ -1,3 +1,5 @@
-@import "tailwindcss";
+@import "./styles/typography.css";
+@import "./styles/tokens.css";
+@import "./styles/motion.css";
 
-/* The admin workspace owns its visual system in admin.css. */
+/* Feature styles currently live in admin.css while the public surface is built separately. */

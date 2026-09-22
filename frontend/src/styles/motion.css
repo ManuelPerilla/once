@@ -1,0 +1,47 @@
+.v-hero {
+  view-transition-name: workspace-hero;
+}
+
+.v-section-art {
+  view-transition-name: workspace-art;
+}
+
+::view-transition-group(workspace-hero),
+::view-transition-group(workspace-art) {
+  animation-duration: var(--motion-slow);
+  animation-timing-function: var(--ease-emphasized);
+}
+
+::view-transition-old(workspace-art) {
+  animation-name: vertice-art-out;
+}
+
+::view-transition-new(workspace-art) {
+  animation-name: vertice-art-in;
+}
+
+@keyframes vertice-art-out {
+  to {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.985);
+    filter: blur(2px);
+  }
+}
+
+@keyframes vertice-art-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px) scale(1.015);
+    filter: blur(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

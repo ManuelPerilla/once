@@ -1,178 +1,79 @@
 import os
 import datetime
 import hmac
-from enum import Enum
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Field, Session, select, Relationship
+from sqlmodel import Field, Session, select
 from contextlib import asynccontextmanager
 import jwt
 from src.database import crear_tablas_db, engine
 from src.security import get_auth_settings, verify_password
+from src.providers.sync import SyncConfigurationError, sync_competition_fixtures, sync_match_detail
+from src.providers import (
+    APIFootballClient,
+    ProviderError,
+    ProviderNotConfigured,
+    WikidataClient,
+)
 
 
 ALGORITHM = "HS256"
 
 
 # ==========================================
-# 1. ENUMS
+# 1. MODELOS DE DOMINIO
 # ==========================================
-class EstadoPartido(str, Enum):
-    VIVO = "en vivo"
-    FINALIZADO = "finalizado"
-    PROGRAMADO = "programado"
-
-
-class TipoCompeticion(str, Enum):
-    LIGA_NACIONAL = "liga_nacional"
-    COPA_NACIONAL = "copa_nacional"
-    INTERNACIONAL_CLUBES = "internacional_clubes"
-    INTERNACIONAL_SELECCIONES = "internacional_selecciones"
-
-
-class TipoEquipo(str, Enum):
-    CLUB = "club"
-    SELECCION = "seleccion"
-
-
-# ==========================================
-# 2. MODELOS JERÁRQUICOS Y RELACIONALES
-# ==========================================
-
-class Participacion(SQLModel, table=True):
-    equipo_id: int | None = Field(default=None, foreign_key="equipo.id", primary_key=True)
-    competicion_id: int | None = Field(default=None, foreign_key="competicion.id", primary_key=True)
-
-
-class ConfederacionBase(SQLModel):
-    nombre: str = Field(index=True, unique=True)
-    logo: str
-
-
-class Confederacion(ConfederacionBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    competiciones: list["Competicion"] = Relationship(back_populates="confederacion")
-    equipos: list["Equipo"] = Relationship(back_populates="confederacion")
-
-
-class ConfederacionRead(ConfederacionBase):
-    id: int
-
-
-class CompeticionBase(SQLModel):
-    nombre: str
-    logo: str
-    tipo: TipoCompeticion
-    pais: str = Field(default="Internacional")
-    confederacion_id: int | None = Field(default=None, foreign_key="confederacion.id")
-
-
-class Competicion(CompeticionBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    confederacion: Confederacion | None = Relationship(back_populates="competiciones")
-    equipos: list["Equipo"] = Relationship(back_populates="competiciones", link_model=Participacion)
-    partidos: list["Partido"] = Relationship(back_populates="competicion_rel")
-
-
-class CompeticionRead(CompeticionBase):
-    id: int
-
-
-class EquipoBase(SQLModel):
-    nombre: str
-    logo: str
-    tipo: TipoEquipo
-    pais: str = Field(default="Internacional")
-    confederacion_id: int | None = Field(default=None, foreign_key="confederacion.id")
-
-
-class Equipo(EquipoBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    confederacion: Confederacion | None = Relationship(back_populates="equipos")
-    competiciones: list[Competicion] = Relationship(back_populates="equipos", link_model=Participacion)
-
-    partidos_local: list["Partido"] = Relationship(
-        back_populates="equipo_local_rel",
-        sa_relationship_kwargs={"foreign_keys": "Partido.equipo_local_id"}
-    )
-    partidos_visitante: list["Partido"] = Relationship(
-        back_populates="equipo_visitante_rel",
-        sa_relationship_kwargs={"foreign_keys": "Partido.equipo_visitante_id"}
-    )
-
-
-class EquipoRead(EquipoBase):
-    id: int
-
-
-class EquipoConCompeticionesRead(EquipoRead):
-    competiciones: list[CompeticionRead] = []
-
-
-class EstadisticasBase(SQLModel):
-    partido_id: int = Field(foreign_key="partido.id", gt=0)
-    posesion_local: int = Field(ge=0, le=100)
-    posesion_visitante: int = Field(ge=0, le=100)
-    tiros_puerta_local: int = Field(ge=0)
-    tiros_puerta_visitante: int = Field(ge=0)
-
-
-class EstadisticasCreate(EstadisticasBase):
-    pass
-
-
-class EstadisticasPartido(EstadisticasBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    partido: "Partido" = Relationship(back_populates="estadisticas")
-
-
-class PartidoBase(SQLModel):
-    competicion_id: int | None = Field(default=None, foreign_key="competicion.id")
-    equipo_local_id: int | None = Field(default=None, foreign_key="equipo.id")
-    equipo_visitante_id: int | None = Field(default=None, foreign_key="equipo.id")
-    marcador_local: int = Field(default=0, ge=0)
-    marcador_visitante: int = Field(default=0, ge=0)
-    estado: EstadoPartido
-
-
-class Partido(PartidoBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-
-    competicion_rel: Competicion | None = Relationship(back_populates="partidos")
-    equipo_local_rel: Equipo | None = Relationship(
-        back_populates="partidos_local",
-        sa_relationship_kwargs={"foreign_keys": "[Partido.equipo_local_id]"}
-    )
-    equipo_visitante_rel: Equipo | None = Relationship(
-        back_populates="partidos_visitante",
-        sa_relationship_kwargs={"foreign_keys": "[Partido.equipo_visitante_id]"}
-    )
-    estadisticas: list[EstadisticasPartido] = Relationship(back_populates="partido", cascade_delete=True)
-
-
-class PartidoCreate(PartidoBase):
-    competicion_id: int = Field(gt=0)
-    equipo_local_id: int = Field(gt=0)
-    equipo_visitante_id: int = Field(gt=0)
-
-
-class PartidoReadDetail(SQLModel):
-    id: int
-    competicion_id: int | None
-    equipo_local_id: int | None
-    equipo_visitante_id: int | None
-    marcador_local: int
-    marcador_visitante: int
-    estado: EstadoPartido
-    competicion: CompeticionRead | None = None
-    equipo_local: EquipoRead | None = None
-    equipo_visitante: EquipoRead | None = None
-
-
-class PartidoConEstadisticasRead(PartidoReadDetail):
-    estadisticas: list[EstadisticasPartido] = []
+from src.models import (
+    AlineacionPartido,
+    AlineacionPartidoBase,
+    AlineacionPartidoRead,
+    Competicion,
+    CompeticionBase,
+    CompeticionPublicRead,
+    CompeticionRead,
+    Confederacion,
+    ConfederacionBase,
+    ConfederacionRead,
+    Equipo,
+    EquipoBase,
+    EquipoConCompeticionesRead,
+    EquipoRead,
+    EstadisticasCreate,
+    EstadisticasPartido,
+    EstadoPartido,
+    Estadio,
+    EstadioBase,
+    EstadioRead,
+    EventoPartido,
+    EventoPartidoBase,
+    EventoPartidoRead,
+    Fase,
+    FaseBase,
+    FaseRead,
+    Jugador,
+    JugadorBase,
+    JugadorRead,
+    MediaAsset,
+    MediaAssetBase,
+    MediaAssetRead,
+    Partido,
+    PartidoConEstadisticasRead,
+    PartidoCreate,
+    PartidoReadDetail,
+    ProviderMapping,
+    ProviderMappingBase,
+    ProviderMappingRead,
+    ProviderSnapshot,
+    ProviderSnapshotRead,
+    StandingRow,
+    Temporada,
+    TemporadaBase,
+    TemporadaRead,
+    TipoCompeticion,
+    TipoEquipo,
+)
 
 
 class LoginRequest(BaseModel):
@@ -277,8 +178,683 @@ def logout(response: Response):
 
 
 # ==========================================
-# 6. ENDPOINTS CONFEDERACIONES
+# 6. ENDPOINTS PÚBLICOS DE SOLO LECTURA
 # ==========================================
+def partido_publico(partido: Partido) -> PartidoConEstadisticasRead:
+    return PartidoConEstadisticasRead(
+        id=partido.id,
+        competicion_id=partido.competicion_id,
+        temporada_id=partido.temporada_id,
+        fase_id=partido.fase_id,
+        estadio_id=partido.estadio_id,
+        equipo_local_id=partido.equipo_local_id,
+        equipo_visitante_id=partido.equipo_visitante_id,
+        fecha=partido.fecha,
+        jornada=partido.jornada,
+        marcador_local=partido.marcador_local,
+        marcador_visitante=partido.marcador_visitante,
+        estado=partido.estado,
+        competicion=partido.competicion_rel,
+        temporada=partido.temporada_rel,
+        fase=partido.fase_rel,
+        estadio=partido.estadio_rel,
+        equipo_local=partido.equipo_local_rel,
+        equipo_visitante=partido.equipo_visitante_rel,
+        estadisticas=partido.estadisticas,
+        eventos=partido.eventos,
+        alineaciones=partido.alineaciones,
+    )
+
+
+@app.get("/public/competiciones/", response_model=list[CompeticionPublicRead])
+def public_competiciones(session: Session = Depends(get_session)):
+    return session.exec(select(Competicion)).all()
+
+
+@app.get("/public/competiciones/{competition_id}/standings", response_model=list[StandingRow])
+def public_standings(
+    competition_id: int,
+    season_id: int | None = None,
+    session: Session = Depends(get_session),
+):
+    competition = session.get(Competicion, competition_id)
+    if not competition:
+        raise HTTPException(status_code=404, detail="Competición no encontrada")
+
+    if season_id is not None:
+        season = session.get(Temporada, season_id)
+        if not season or season.competicion_id != competition_id:
+            raise HTTPException(status_code=404, detail="Temporada no encontrada para esta competición")
+
+    rows = {
+        team.id: {
+            "team": team,
+            "played": 0,
+            "won": 0,
+            "drawn": 0,
+            "lost": 0,
+            "goals_for": 0,
+            "goals_against": 0,
+            "points": 0,
+        }
+        for team in competition.equipos
+    }
+
+    statement = select(Partido).where(
+        Partido.competicion_id == competition_id,
+        Partido.estado == EstadoPartido.FINALIZADO,
+    )
+    if season_id is not None:
+        statement = statement.where(Partido.temporada_id == season_id)
+
+    for match in session.exec(statement).all():
+        if match.equipo_local_id not in rows or match.equipo_visitante_id not in rows:
+            continue
+
+        home = rows[match.equipo_local_id]
+        away = rows[match.equipo_visitante_id]
+        home["played"] += 1
+        away["played"] += 1
+        home["goals_for"] += match.marcador_local
+        home["goals_against"] += match.marcador_visitante
+        away["goals_for"] += match.marcador_visitante
+        away["goals_against"] += match.marcador_local
+
+        if match.marcador_local > match.marcador_visitante:
+            home["won"] += 1
+            home["points"] += 3
+            away["lost"] += 1
+        elif match.marcador_local < match.marcador_visitante:
+            away["won"] += 1
+            away["points"] += 3
+            home["lost"] += 1
+        else:
+            home["drawn"] += 1
+            away["drawn"] += 1
+            home["points"] += 1
+            away["points"] += 1
+
+    ordered = sorted(
+        rows.values(),
+        key=lambda row: (
+            row["points"],
+            row["goals_for"] - row["goals_against"],
+            row["goals_for"],
+            row["team"].nombre,
+        ),
+        reverse=True,
+    )
+
+    return [
+        StandingRow(
+            rank=index,
+            goal_difference=row["goals_for"] - row["goals_against"],
+            **row,
+        )
+        for index, row in enumerate(ordered, start=1)
+    ]
+
+
+@app.get("/public/temporadas/", response_model=list[TemporadaRead])
+def public_temporadas(session: Session = Depends(get_session)):
+    return session.exec(select(Temporada)).all()
+
+
+@app.get("/public/fases/", response_model=list[FaseRead])
+def public_fases(session: Session = Depends(get_session)):
+    return session.exec(select(Fase)).all()
+
+
+@app.get("/public/estadios/", response_model=list[EstadioRead])
+def public_estadios(session: Session = Depends(get_session)):
+    return session.exec(select(Estadio)).all()
+
+
+@app.get("/public/jugadores/", response_model=list[JugadorRead])
+def public_jugadores(session: Session = Depends(get_session)):
+    return session.exec(select(Jugador)).all()
+
+
+@app.get("/public/equipos/", response_model=list[EquipoConCompeticionesRead])
+def public_equipos(session: Session = Depends(get_session)):
+    return session.exec(select(Equipo)).all()
+
+
+@app.get("/public/partidos/", response_model=list[PartidoConEstadisticasRead])
+def public_partidos(session: Session = Depends(get_session)):
+    partidos = session.exec(select(Partido)).all()
+    return [partido_publico(partido) for partido in partidos]
+
+
+@app.get("/public/partidos/{partido_id}", response_model=PartidoConEstadisticasRead)
+def public_detalle_partido(partido_id: int, session: Session = Depends(get_session)):
+    partido = session.get(Partido, partido_id)
+    if not partido:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    return partido_publico(partido)
+
+
+@app.get("/public/media/{entity_type}/{entity_id}", response_model=list[MediaAssetRead])
+def public_media(entity_type: str, entity_id: int, session: Session = Depends(get_session)):
+    statement = select(MediaAsset).where(
+        MediaAsset.entity_type == entity_type,
+        MediaAsset.entity_id == entity_id,
+    )
+    return session.exec(statement).all()
+
+
+# ==========================================
+# 7. CONTEXTO FUTBOLÍSTICO Y PROCEDENCIA
+# ==========================================
+@app.post("/temporadas/", response_model=TemporadaRead)
+def crear_temporada(
+    temporada_in: TemporadaBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    if not session.get(Competicion, temporada_in.competicion_id):
+        raise HTTPException(status_code=404, detail="Competición no encontrada")
+    temporada = Temporada.model_validate(temporada_in)
+    session.add(temporada)
+    session.commit()
+    session.refresh(temporada)
+    return temporada
+
+
+@app.get("/temporadas/", response_model=list[TemporadaRead])
+def leer_temporadas(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(Temporada)).all()
+
+
+@app.post("/fases/", response_model=FaseRead)
+def crear_fase(
+    fase_in: FaseBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    if not session.get(Temporada, fase_in.temporada_id):
+        raise HTTPException(status_code=404, detail="Temporada no encontrada")
+    fase = Fase.model_validate(fase_in)
+    session.add(fase)
+    session.commit()
+    session.refresh(fase)
+    return fase
+
+
+@app.get("/fases/", response_model=list[FaseRead])
+def leer_fases(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(Fase)).all()
+
+
+@app.post("/estadios/", response_model=EstadioRead)
+def crear_estadio(
+    estadio_in: EstadioBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    estadio = Estadio.model_validate(estadio_in)
+    session.add(estadio)
+    session.commit()
+    session.refresh(estadio)
+    return estadio
+
+
+@app.get("/estadios/", response_model=list[EstadioRead])
+def leer_estadios(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(Estadio)).all()
+
+
+@app.post("/jugadores/", response_model=JugadorRead)
+def crear_jugador(
+    jugador_in: JugadorBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    jugador = Jugador.model_validate(jugador_in)
+    session.add(jugador)
+    session.commit()
+    session.refresh(jugador)
+    return jugador
+
+
+@app.get("/jugadores/", response_model=list[JugadorRead])
+def leer_jugadores(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(Jugador)).all()
+
+
+@app.post("/eventos/", response_model=EventoPartidoRead)
+def crear_evento(
+    evento_in: EventoPartidoBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    partido = session.get(Partido, evento_in.partido_id)
+    if not partido:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    if evento_in.equipo_id and not session.get(Equipo, evento_in.equipo_id):
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if evento_in.jugador_id and not session.get(Jugador, evento_in.jugador_id):
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+    if evento_in.asistente_id and not session.get(Jugador, evento_in.asistente_id):
+        raise HTTPException(status_code=404, detail="Asistente no encontrado")
+    if evento_in.equipo_id not in (None, partido.equipo_local_id, partido.equipo_visitante_id):
+        raise HTTPException(status_code=400, detail="El equipo del evento no participa en el partido")
+
+    evento = EventoPartido.model_validate(evento_in)
+    session.add(evento)
+    session.commit()
+    session.refresh(evento)
+    return evento
+
+
+@app.post("/alineaciones/", response_model=AlineacionPartidoRead)
+def crear_alineacion(
+    alineacion_in: AlineacionPartidoBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    partido = session.get(Partido, alineacion_in.partido_id)
+    if not partido:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    if alineacion_in.equipo_id not in (partido.equipo_local_id, partido.equipo_visitante_id):
+        raise HTTPException(status_code=400, detail="El equipo no participa en el partido")
+    if not session.get(Jugador, alineacion_in.jugador_id):
+        raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+    alineacion = AlineacionPartido.model_validate(alineacion_in)
+    session.add(alineacion)
+    session.commit()
+    session.refresh(alineacion)
+    return alineacion
+
+
+ENTITY_MODELS = {
+    "competition": Competicion,
+    "team": Equipo,
+    "match": Partido,
+    "season": Temporada,
+    "stage": Fase,
+    "venue": Estadio,
+    "player": Jugador,
+}
+
+
+def validar_entidad_generica(entity_type: str, local_id: int, session: Session) -> None:
+    model = ENTITY_MODELS.get(entity_type)
+    if not model:
+        raise HTTPException(
+            status_code=400,
+            detail="entity_type no soportado. Usa competition, team, match, season, stage, venue o player.",
+        )
+    if not session.get(model, local_id):
+        raise HTTPException(status_code=404, detail="Entidad local no encontrada")
+
+
+def provider_response(callable_):
+    try:
+        return callable_()
+    except ProviderNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/providers/api-football/status")
+def api_football_status(usuario: str = Depends(verificar_token)):
+    client = APIFootballClient()
+    return {
+        "provider": "api-football",
+        "configured": client.configured,
+        "base_url": client.base_url,
+    }
+
+
+@app.get("/providers/api-football/preview/league/{league_id}")
+def preview_api_football_league(
+    league_id: int,
+    season: int | None = None,
+    usuario: str = Depends(verificar_token),
+):
+    client = APIFootballClient()
+    return provider_response(lambda: client.league(league_id, season))
+
+
+@app.get("/providers/api-football/preview/fixtures")
+def preview_api_football_fixtures(
+    league_id: int,
+    season: int,
+    usuario: str = Depends(verificar_token),
+):
+    client = APIFootballClient()
+    return provider_response(lambda: client.fixtures(league_id, season))
+
+
+@app.get("/providers/api-football/preview/fixture/{fixture_id}")
+def preview_api_football_fixture(
+    fixture_id: int,
+    usuario: str = Depends(verificar_token),
+):
+    client = APIFootballClient()
+    return provider_response(lambda: client.fixture(fixture_id))
+
+
+@app.get("/providers/api-football/preview/teams")
+def preview_api_football_teams(
+    league_id: int,
+    season: int,
+    usuario: str = Depends(verificar_token),
+):
+    client = APIFootballClient()
+    return provider_response(lambda: client.teams(league_id, season))
+
+
+@app.get("/providers/api-football/preview/rounds")
+def preview_api_football_rounds(
+    league_id: int,
+    season: int,
+    usuario: str = Depends(verificar_token),
+):
+    client = APIFootballClient()
+    return provider_response(lambda: client.rounds(league_id, season))
+
+
+@app.get("/providers/wikidata/preview/{qid}")
+def preview_wikidata_item(
+    qid: str,
+    usuario: str = Depends(verificar_token),
+):
+    try:
+        return WikidataClient().entity(qid)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/providers/wikidata/preview/{qid}/media")
+def preview_wikidata_media(
+    qid: str,
+    usuario: str = Depends(verificar_token),
+):
+    try:
+        return WikidataClient().commons_media(qid)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post(
+    "/providers/wikidata/import-media/{entity_type}/{local_id}/{qid}",
+    response_model=MediaAssetRead,
+)
+def import_wikidata_media(
+    entity_type: str,
+    local_id: int,
+    qid: str,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    validar_entidad_generica(entity_type, local_id, session)
+
+    try:
+        media = WikidataClient().commons_media(qid)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if not media.get("original_url"):
+        raise HTTPException(status_code=502, detail="Commons no devolvió una URL de archivo.")
+
+    normalized_qid = qid.upper()
+    mapping = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == "wikidata",
+            ProviderMapping.entity_type == entity_type,
+            ProviderMapping.external_id == normalized_qid,
+        )
+    ).first()
+    if mapping and mapping.local_id != local_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Ese QID de Wikidata ya está vinculado a otra entidad local.",
+        )
+    if not mapping:
+        session.add(
+            ProviderMapping(
+                provider="wikidata",
+                entity_type=entity_type,
+                local_id=local_id,
+                external_id=normalized_qid,
+                source_url=f"https://www.wikidata.org/wiki/{normalized_qid}",
+                verified_at=datetime.datetime.now(datetime.timezone.utc),
+            )
+        )
+
+    asset = session.exec(
+        select(MediaAsset).where(
+            MediaAsset.entity_type == entity_type,
+            MediaAsset.entity_id == local_id,
+            MediaAsset.source == "wikimedia-commons",
+            MediaAsset.remote_id == media.get("filename"),
+        )
+    ).first()
+    values = {
+        "tipo": "imagen_principal",
+        "source": "wikimedia-commons",
+        "source_url": media.get("source_url"),
+        "remote_id": media.get("filename"),
+        "author": media.get("author"),
+        "license": media.get("license"),
+        "license_url": media.get("license_url"),
+        "credit": media.get("credit"),
+        "original_url": media["original_url"],
+        "width": media.get("width"),
+        "height": media.get("height"),
+        "mime_type": media.get("mime_type"),
+        "verified_at": datetime.datetime.now(datetime.timezone.utc),
+    }
+
+    if asset:
+        for key, value in values.items():
+            setattr(asset, key, value)
+    else:
+        asset = MediaAsset(
+            entity_type=entity_type,
+            entity_id=local_id,
+            **values,
+        )
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+    return asset
+
+
+@app.post("/providers/api-football/sync/competition/{competition_id}/season/{season_id}")
+def sync_api_football_competition(
+    competition_id: int,
+    season_id: int,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    competition_mapping = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == "api-football",
+            ProviderMapping.entity_type == "competition",
+            ProviderMapping.local_id == competition_id,
+        )
+    ).first()
+    season_mapping = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == "api-football",
+            ProviderMapping.entity_type == "season",
+            ProviderMapping.local_id == season_id,
+        )
+    ).first()
+
+    if not competition_mapping or not season_mapping:
+        raise HTTPException(
+            status_code=400,
+            detail="Mapea primero la competición y la temporada con API-Football.",
+        )
+
+    try:
+        league_id = int(competition_mapping.external_id)
+        season_year = int(season_mapping.external_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Los mappings de competición y temporada deben usar IDs/años numéricos.",
+        ) from exc
+
+    client = APIFootballClient()
+    payload = provider_response(lambda: client.fixtures(league_id, season_year))
+
+    try:
+        return sync_competition_fixtures(
+            session,
+            competition_id,
+            season_id,
+            payload,
+        )
+    except SyncConfigurationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/providers/api-football/sync/match/{match_id}")
+def sync_api_football_match_detail(
+    match_id: int,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    mapping = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == "api-football",
+            ProviderMapping.entity_type == "match",
+            ProviderMapping.local_id == match_id,
+        )
+    ).first()
+    if not mapping:
+        raise HTTPException(
+            status_code=400,
+            detail="El partido no tiene mapping de API-Football.",
+        )
+
+    try:
+        fixture_id = int(mapping.external_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="El mapping del partido debe usar un fixture ID numérico.",
+        ) from exc
+
+    client = APIFootballClient()
+    events_payload = provider_response(lambda: client.fixture_events(fixture_id))
+    lineups_payload = provider_response(lambda: client.fixture_lineups(fixture_id))
+    statistics_payload = provider_response(lambda: client.fixture_statistics(fixture_id))
+
+    try:
+        return sync_match_detail(
+            session,
+            match_id,
+            events_payload=events_payload,
+            lineups_payload=lineups_payload,
+            statistics_payload=statistics_payload,
+        )
+    except SyncConfigurationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/providers/snapshots/", response_model=list[ProviderSnapshotRead])
+def leer_provider_snapshots(
+    provider: str | None = None,
+    entity_type: str | None = None,
+    local_id: int | None = None,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    statement = select(ProviderSnapshot)
+    if provider:
+        statement = statement.where(ProviderSnapshot.provider == provider)
+    if entity_type:
+        statement = statement.where(ProviderSnapshot.entity_type == entity_type)
+    if local_id is not None:
+        statement = statement.where(ProviderSnapshot.local_id == local_id)
+    return session.exec(statement).all()
+
+
+@app.post("/providers/mappings/", response_model=ProviderMappingRead)
+def crear_provider_mapping(
+    mapping_in: ProviderMappingBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    validar_entidad_generica(mapping_in.entity_type, mapping_in.local_id, session)
+    existing = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == mapping_in.provider,
+            ProviderMapping.entity_type == mapping_in.entity_type,
+            ProviderMapping.external_id == mapping_in.external_id,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Ese identificador externo ya está vinculado")
+
+    mapping = ProviderMapping.model_validate(mapping_in)
+    session.add(mapping)
+    session.commit()
+    session.refresh(mapping)
+    return mapping
+
+
+@app.get("/providers/mappings/", response_model=list[ProviderMappingRead])
+def leer_provider_mappings(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(ProviderMapping)).all()
+
+
+@app.post("/media/", response_model=MediaAssetRead)
+def crear_media_asset(
+    asset_in: MediaAssetBase,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    validar_entidad_generica(asset_in.entity_type, asset_in.entity_id, session)
+    asset = MediaAsset.model_validate(asset_in)
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+    return asset
+
+
+@app.get("/media/", response_model=list[MediaAssetRead])
+def leer_media_assets(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
+    return session.exec(select(MediaAsset)).all()
+
+
+# ==========================================
+# 8. ENDPOINTS CONFEDERACIONES
+# ==========================================
+
+
 @app.post("/confederaciones/", response_model=ConfederacionRead)
 def crear_confederacion(conf_in: ConfederacionBase, session: Session = Depends(get_session),
                         usuario: str = Depends(verificar_token)):
@@ -325,7 +901,7 @@ def eliminar_confederacion(id: int, session: Session = Depends(get_session), usu
 
 
 # ==========================================
-# 7. ENDPOINTS COMPETICIONES (BLINDADAS)
+# 9. ENDPOINTS COMPETICIONES (BLINDADAS)
 # ==========================================
 @app.post("/competiciones/", response_model=CompeticionRead)
 def crear_competicion(comp_in: CompeticionBase, session: Session = Depends(get_session),
@@ -387,7 +963,7 @@ def eliminar_competicion(id: int, session: Session = Depends(get_session), usuar
 
 
 # ==========================================
-# 8. ENDPOINTS EQUIPOS (BLINDADOS)
+# 10. ENDPOINTS EQUIPOS (BLINDADOS)
 # ==========================================
 @app.post("/equipos/", response_model=EquipoRead)
 def crear_equipo(equipo_in: EquipoBase, session: Session = Depends(get_session),
@@ -479,20 +1055,43 @@ def matricular_equipo(equipo_id: int, competicion_id: int, session: Session = De
 
 
 # ==========================================
-# 9. ENDPOINTS PARTIDOS REFACTORIZADOS
+# 11. ENDPOINTS PARTIDOS REFACTORIZADOS
 # ==========================================
+def validar_contexto_partido(partido_in: PartidoCreate, comp: Competicion, session: Session) -> None:
+    if partido_in.temporada_id:
+        temporada = session.get(Temporada, partido_in.temporada_id)
+        if not temporada:
+            raise HTTPException(status_code=404, detail="Temporada no encontrada")
+        if temporada.competicion_id != comp.id:
+            raise HTTPException(status_code=400, detail="La temporada no pertenece a la competición")
+
+    if partido_in.fase_id:
+        fase = session.get(Fase, partido_in.fase_id)
+        if not fase:
+            raise HTTPException(status_code=404, detail="Fase no encontrada")
+        if not partido_in.temporada_id or fase.temporada_id != partido_in.temporada_id:
+            raise HTTPException(status_code=400, detail="La fase no pertenece a la temporada indicada")
+
+    if partido_in.estadio_id and not session.get(Estadio, partido_in.estadio_id):
+        raise HTTPException(status_code=404, detail="Estadio no encontrado")
+
+
 @app.post("/partidos/", response_model=PartidoReadDetail)
-def crear_partido(partido_in: PartidoCreate, session: Session = Depends(get_session),
-                  usuario: str = Depends(verificar_token)):
+def crear_partido(
+    partido_in: PartidoCreate,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
     comp = session.get(Competicion, partido_in.competicion_id)
     local = session.get(Equipo, partido_in.equipo_local_id)
     visita = session.get(Equipo, partido_in.equipo_visitante_id)
 
     if not comp or not local or not visita:
         raise HTTPException(status_code=404, detail="Faltan datos de Competición o Equipos")
-
     if local.id == visita.id:
         raise HTTPException(status_code=400, detail="Un equipo no puede jugar contra sí mismo")
+
+    validar_contexto_partido(partido_in, comp, session)
 
     for equipo in (local, visita):
         validar_compatibilidad(equipo, comp)
@@ -506,60 +1105,28 @@ def crear_partido(partido_in: PartidoCreate, session: Session = Depends(get_sess
     session.add(partido_db)
     session.commit()
     session.refresh(partido_db)
-
-    return PartidoReadDetail(
-        id=partido_db.id,
-        competicion_id=partido_db.competicion_id,
-        equipo_local_id=partido_db.equipo_local_id,
-        equipo_visitante_id=partido_db.equipo_visitante_id,
-        marcador_local=partido_db.marcador_local,
-        marcador_visitante=partido_db.marcador_visitante,
-        estado=partido_db.estado,
-        competicion=comp,
-        equipo_local=local,
-        equipo_visitante=visita
-    )
+    return partido_publico(partido_db)
 
 
 @app.get("/partidos/", response_model=list[PartidoReadDetail])
-def leer_partidos(session: Session = Depends(get_session), usuario: str = Depends(verificar_token)):
+def leer_partidos(
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
     partidos = session.exec(select(Partido)).all()
-    resultado = []
-    for p in partidos:
-        resultado.append(PartidoReadDetail(
-            id=p.id,
-            competicion_id=p.competicion_id,
-            equipo_local_id=p.equipo_local_id,
-            equipo_visitante_id=p.equipo_visitante_id,
-            marcador_local=p.marcador_local,
-            marcador_visitante=p.marcador_visitante,
-            estado=p.estado,
-            competicion=p.competicion_rel,
-            equipo_local=p.equipo_local_rel,
-            equipo_visitante=p.equipo_visitante_rel
-        ))
-    return resultado
+    return [partido_publico(partido) for partido in partidos]
 
 
 @app.get("/partidos/{partido_id}", response_model=PartidoConEstadisticasRead)
-def leer_detalle_partido(partido_id: int, session: Session = Depends(get_session),
-                         usuario: str = Depends(verificar_token)):
+def leer_detalle_partido(
+    partido_id: int,
+    session: Session = Depends(get_session),
+    usuario: str = Depends(verificar_token),
+):
     partido = session.get(Partido, partido_id)
     if not partido:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
-    return PartidoConEstadisticasRead(
-        id=partido.id,
-        competicion_id=partido.competicion_id,
-        equipo_local_id=partido.equipo_local_id,
-        equipo_visitante_id=partido.equipo_visitante_id,
-        marcador_local=partido.marcador_local,
-        marcador_visitante=partido.marcador_visitante,
-        estado=partido.estado,
-        competicion=partido.competicion_rel,
-        equipo_local=partido.equipo_local_rel,
-        equipo_visitante=partido.equipo_visitante_rel,
-        estadisticas=partido.estadisticas
-    )
+    return partido_publico(partido)
 
 
 @app.post("/estadisticas/", response_model=EstadisticasPartido)

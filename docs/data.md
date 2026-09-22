@@ -673,3 +673,62 @@ Se considera una dirección estratégica del proyecto.
 
 4. VÉRTICE debe tener un modelo propio y normalizado, independiente
    de cómo cada proveedor nombre o presente sus datos.
+
+---
+
+## 7. Implementación actual
+
+El modelo conceptual anterior ya tiene una primera implementación persistente en SQLModel/PostgreSQL.
+
+Entidades implementadas:
+
+- `Competicion`
+- `Temporada`
+- `Fase`
+- `Partido`
+- `Equipo`
+- `Jugador`
+- `JugadorEquipo`
+- `Estadio`
+- `EventoPartido`
+- `AlineacionPartido`
+- `EstadisticasPartido`
+
+La evolución del esquema se versiona con Alembic. Una base creada con el modelo anterior puede adoptar las tablas y columnas nuevas sin borrar el volumen de PostgreSQL.
+
+### Procedencia y observaciones externas
+
+VÉRTICE separa identidad local y observaciones de proveedores:
+
+```text
+Entidad local
+├── ProviderMapping
+│   ├── proveedor
+│   ├── tipo de entidad
+│   └── ID externo
+├── ProviderSnapshot
+│   ├── tipo de payload
+│   ├── fecha de consulta
+│   └── JSON recibido
+└── MediaAsset
+    ├── fuente
+    ├── autor / crédito
+    ├── licencia
+    └── URL original
+```
+
+`ProviderMapping` evita usar IDs de terceros como claves del dominio.
+
+`ProviderSnapshot` conserva la última respuesta relevante de una fuente para poder auditar la normalización. El snapshot no reemplaza las tablas del dominio y no se usa directamente como modelo de lectura pública.
+
+Los eventos, alineaciones y estadísticas importados pueden guardar `source`. Una sincronización reemplaza únicamente las filas pertenecientes al mismo proveedor, por lo que los registros creados manualmente permanecen intactos.
+
+### Datos derivados actuales
+
+La tabla pública de una competición se calcula a partir de partidos finalizados y no se almacena como una segunda verdad persistente. La forma reciente de un equipo también se deriva del archivo de partidos disponible.
+
+Esto mantiene una separación explícita entre:
+
+- datos canónicos persistidos
+- observaciones externas
+- datos derivados para presentación
