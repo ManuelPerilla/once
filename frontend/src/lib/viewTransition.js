@@ -16,7 +16,11 @@ export function runViewTransition(update) {
     return null;
   }
 
-  return document.startViewTransition(() => {
+  const transition = document.startViewTransition(() => {
     flushSync(update);
   });
+  // Rapid navigation can skip an animation. Its ready promise rejects even
+  // though the DOM update succeeds; this is an expected browser lifecycle.
+  transition.ready.catch(() => {});
+  return transition;
 }

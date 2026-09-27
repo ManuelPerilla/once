@@ -1,10 +1,13 @@
 :root {
-  --ink: #173a2e;
-  --muted: #647068;
-  --line: #d9ddd3;
-  --paper: #f7f7f0;
-  --soft: #e9ece2;
-  --orange: #ff784f;
+  --ink: #101d36;
+  --muted: #647083;
+  --line: #dce1e8;
+  --paper: #f7f8fa;
+  --soft: #edf0f5;
+  --orange: #c4f45b;
+  --accent: #c4f45b;
+  --navy: #101d36;
+  --blue: #3263f3;
 
   --display: "Barlow Condensed", Impact, sans-serif;
   --body: "DM Sans", system-ui, sans-serif;

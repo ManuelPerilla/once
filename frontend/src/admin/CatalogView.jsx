@@ -1,7 +1,4 @@
-import {
-  COMPETITION_TYPES,
-  EMPTY_FILTERS,
-} from "../catalogFilters";
+import { COMPETITION_TYPES, EMPTY_FILTERS } from "../catalogFilters";
 import { Crest } from "../components/ui/Crest";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Field } from "../components/ui/Field";
@@ -57,7 +54,10 @@ export function CatalogView({
             tabIndex={catalogTab === type ? 0 : -1}
             key={type}
             onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
               event.preventDefault();
               const index =
                 event.key === "Home"
@@ -111,18 +111,24 @@ export function CatalogView({
                       {confederation.nombre}
                     </option>
                   ))}
-                  <option value="unassigned">Sin confederación / globales</option>
+                  <option value="unassigned">
+                    Sin confederación / globales
+                  </option>
                 </select>
               </Field>
 
               <Field label="País / ámbito">
                 <select
                   value={filters.country}
-                  onChange={(event) => updateFilter("country", event.target.value)}
+                  onChange={(event) =>
+                    updateFilter("country", event.target.value)
+                  }
                 >
                   <option value="">Todos los países y ámbitos</option>
                   {countries.map((country) => (
-                    <option key={country} value={country}>{country}</option>
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -139,7 +145,9 @@ export function CatalogView({
               >
                 <option value="">Todos los tipos</option>
                 {Object.entries(COMPETITION_TYPES).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
               </select>
             </Field>

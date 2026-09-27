@@ -21,7 +21,11 @@ class StartupTests(unittest.TestCase):
             ConnectionResetError(104, "Connection reset by peer"),
             http.client.RemoteDisconnected("Remote end closed connection"),
             urllib.error.URLError("connection refused"),
-            TimeoutError(), http_error(502), http_error(503), http_error(504), http_error(401),
+            TimeoutError(),
+            http_error(502),
+            http_error(503),
+            http_error(504),
+            http_error(401),
         ]
         wait_for_api("http://localhost", attempts=8)
         self.assertEqual(request.call_count, 8)

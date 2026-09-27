@@ -13,44 +13,46 @@ import { MatchTimeline } from "./components/MatchTimeline";
 import { Pitch } from "./components/Pitch";
 import { SearchBox } from "./components/SearchBox";
 import { StandingsTable } from "./components/StandingsTable";
-import "./public.css";
+import { ExploreHome, MatchExplorer, EntityExplorer } from "./ExploreHome";
+import { formatMatchDate } from "./matchFilters";
+import { routeFromPath, publicPath } from "./routes";
 
-function routeFromPath(pathname) {
-  const parts = pathname.replace(/^\/explore\/?/, "").split("/").filter(Boolean);
-  if (parts[0] === "partidos" && parts[1]) return { type: "match", id: Number(parts[1]) };
-  if (parts[0] === "equipos" && parts[1]) return { type: "team", id: Number(parts[1]) };
-  if (parts[0] === "competiciones" && parts[1]) return { type: "competition", id: Number(parts[1]) };
-  if (parts[0] === "jugadores" && parts[1]) return { type: "player", id: Number(parts[1]) };
-  return { type: "home" };
-}
-
-function publicPath(type, id) {
-  if (type === "home") return "/explore";
-  const plural = {
-    match: "partidos",
-    team: "equipos",
-    competition: "competiciones",
-    player: "jugadores",
-  }[type];
-  return `/explore/${plural}/${id}`;
-}
-
-function formatMatchDate(value) {
-  if (!value) return null;
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function PublicShell({ children, navigate, searchData = {} }) {
+function PublicShell({
+  children,
+  navigate,
+  searchData = {},
+  route = {},
+  demo = false,
+}) {
   return (
     <div className="p-app">
+      <a className="v-skip-link" href="#public-content">
+        Saltar al contenido
+      </a>
       <header className="p-header">
-        <button className="p-brand-button" onClick={() => navigate("home")}>
+        <button
+          className="p-brand-button"
+          aria-label="ONCE · Inicio"
+          onClick={() => navigate("home")}
+        >
           <Brand />
         </button>
-        <span className="p-header-line">FÚTBOL · CONTEXTO · CONEXIONES</span>
+        <nav className="once-public-nav" aria-label="Explorar fútbol">
+          {[
+            ["home", "Descubrir"],
+            ["matches", "Partidos"],
+            ["competitions", "Competiciones"],
+            ["teams", "Equipos"],
+          ].map(([page, label]) => (
+            <button
+              key={page}
+              aria-current={route.type === page ? "page" : undefined}
+              onClick={() => navigate(page)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
         <SearchBox
           teams={searchData.teams || []}
           competitions={searchData.competitions || []}
@@ -62,10 +64,24 @@ function PublicShell({ children, navigate, searchData = {} }) {
           Administración <Icon name="arrow" />
         </a>
       </header>
+      {demo && (
+        <div className="once-demo-banner">
+          <span>
+            <strong>Estás explorando una demo.</strong> Equipos y resultados
+            ficticios para probar la experiencia.
+          </span>
+          <a href="/explore">
+            Ver mis datos <Icon name="arrow" />
+          </a>
+        </div>
+      )}
       {children}
       <footer className="p-footer">
         <Brand />
-        <span>VÉRTICE · EL JUEGO TIENE MÁS DE UNA ENTRADA.</span>
+        <span>HECHO PARA QUIENES VIVEN EL JUEGO.</span>
+        <a href="/">
+          Centro de operaciones <Icon name="arrow" />
+        </a>
       </footer>
     </div>
   );
@@ -76,18 +92,28 @@ function Score({ match }) {
   return (
     <div className="p-score">
       <div className="p-team" data-side="home">
-        <Crest src={match.equipo_local?.logo} name={match.equipo_local?.nombre} />
+        <Crest
+          src={match.equipo_local?.logo}
+          name={match.equipo_local?.nombre}
+        />
         <strong>{match.equipo_local?.nombre || "Equipo por confirmar"}</strong>
       </div>
       <div className="p-score-center">
         <Status value={match.estado} />
         <strong>
-          {scheduled ? "VS" : `${match.marcador_local} : ${match.marcador_visitante}`}
+          {scheduled
+            ? "VS"
+            : `${match.marcador_local} : ${match.marcador_visitante}`}
         </strong>
       </div>
       <div className="p-team" data-side="away">
-        <Crest src={match.equipo_visitante?.logo} name={match.equipo_visitante?.nombre} />
-        <strong>{match.equipo_visitante?.nombre || "Equipo por confirmar"}</strong>
+        <Crest
+          src={match.equipo_visitante?.logo}
+          name={match.equipo_visitante?.nombre}
+        />
+        <strong>
+          {match.equipo_visitante?.nombre || "Equipo por confirmar"}
+        </strong>
       </div>
     </div>
   );
@@ -96,7 +122,7 @@ function Score({ match }) {
 function EmptyPublic({ title, children }) {
   return (
     <div className="p-empty">
-      <span aria-hidden="true">V / 00</span>
+      <span aria-hidden="true">11 / 00</span>
       <h2>{title}</h2>
       <p>{children}</p>
     </div>
@@ -127,113 +153,6 @@ function MatchCard({ match, navigate }) {
   );
 }
 
-function Home({ matches, competitions, teams, navigate }) {
-  const featured = [...matches].sort((a, b) => {
-    if (a.fecha && b.fecha) return new Date(b.fecha) - new Date(a.fecha);
-    return b.id - a.id;
-  })[0];
-
-  return (
-    <main>
-      <section className="p-home-hero">
-        <div className="p-home-copy">
-          <span className="p-kicker">EL FÚTBOL NO TERMINA EN EL MARCADOR</span>
-          <h1>
-            Sigue
-            <br />
-            <em>el hilo.</em>
-          </h1>
-          <p>
-            Entra por un partido y continúa hacia los equipos, las competiciones,
-            los jugadores y las conexiones que lo explican.
-          </p>
-        </div>
-        <div className="p-orbit" aria-hidden="true">
-          <span className="p-orbit-ball" />
-          <span className="p-orbit-ring p-orbit-ring-a" />
-          <span className="p-orbit-ring p-orbit-ring-b" />
-          <span className="p-orbit-dot p-orbit-dot-a" />
-          <span className="p-orbit-dot p-orbit-dot-b" />
-          <small>V / FOOTBALL GRAPH</small>
-        </div>
-      </section>
-
-      <section className="p-section">
-        <div className="p-section-head">
-          <div>
-            <span className="p-kicker">01 / ENCUENTROS</span>
-            <h2>Una puerta de entrada.</h2>
-          </div>
-          <span>{matches.length} registrados</span>
-        </div>
-        {featured ? (
-          <button
-            className="p-featured-match"
-            onClick={() => navigate("match", featured.id)}
-          >
-            <span className="p-featured-meta">
-              {featured.competicion?.nombre || "Sin competición"}
-              {featured.fecha && <small>{formatMatchDate(featured.fecha)}</small>}
-            </span>
-            <Score match={featured} />
-            <span className="p-open">
-              Abrir contexto <Icon name="arrow" />
-            </span>
-          </button>
-        ) : (
-          <EmptyPublic title="Todavía no hay partidos publicados">
-            Cuando el archivo tenga encuentros, aparecerán aquí sin inventar
-            actividad ni resultados.
-          </EmptyPublic>
-        )}
-
-        {matches.length > 1 && (
-          <div className="p-match-list">
-            {[...matches]
-              .sort((a, b) => b.id - a.id)
-              .slice(1, 7)
-              .map((match) => (
-                <MatchCard key={match.id} match={match} navigate={navigate} />
-              ))}
-          </div>
-        )}
-      </section>
-
-      <section className="p-index-grid">
-        <div className="p-index-panel">
-          <span className="p-kicker">02 / COMPETICIONES</span>
-          <h2>Territorios del juego.</h2>
-          {competitions.slice(0, 6).map((competition, index) => (
-            <button
-              key={competition.id}
-              onClick={() => navigate("competition", competition.id)}
-            >
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <Crest small src={competition.logo} name={competition.nombre} />
-              <strong>{competition.nombre}</strong>
-              <small>{competition.pais}</small>
-              <Icon name="arrow" />
-            </button>
-          ))}
-        </div>
-        <div className="p-index-panel">
-          <span className="p-kicker">03 / EQUIPOS</span>
-          <h2>Identidades conectadas.</h2>
-          {teams.slice(0, 6).map((team, index) => (
-            <button key={team.id} onClick={() => navigate("team", team.id)}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <Crest small src={team.logo} name={team.nombre} />
-              <strong>{team.nombre}</strong>
-              <small>{team.pais}</small>
-              <Icon name="arrow" />
-            </button>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
-}
-
 function MatchMeta({ match }) {
   const items = [
     ["FECHA", formatMatchDate(match.fecha)],
@@ -243,7 +162,9 @@ function MatchMeta({ match }) {
     [
       "ESTADIO",
       match.estadio
-        ? [match.estadio.nombre, match.estadio.ciudad].filter(Boolean).join(" · ")
+        ? [match.estadio.nombre, match.estadio.ciudad]
+            .filter(Boolean)
+            .join(" · ")
         : null,
     ],
   ].filter(([, value]) => value);
@@ -265,9 +186,10 @@ function MatchMeta({ match }) {
 function MatchDetail({ match, players, navigate }) {
   if (!match) {
     return (
-      <main className="p-detail">
+      <main className="p-detail" id="public-content" tabIndex={-1}>
         <EmptyPublic title="Ese partido no está disponible">
-          Puede que haya sido eliminado o que todavía no forme parte del archivo público.
+          Puede que haya sido eliminado o que todavía no forme parte del archivo
+          público.
         </EmptyPublic>
       </main>
     );
@@ -276,15 +198,19 @@ function MatchDetail({ match, players, navigate }) {
   const stats = match.estadisticas?.[0];
 
   return (
-    <main className="p-detail">
+    <main className="p-detail" id="public-content" tabIndex={-1}>
       <button className="p-back" onClick={() => navigate("home")}>
         <Icon name="arrow" /> Volver al archivo
       </button>
       <section className="p-match-hero">
-        <span className="p-kicker">{match.competicion?.nombre || "PARTIDO"}</span>
+        <span className="p-kicker">
+          {match.competicion?.nombre || "PARTIDO"}
+        </span>
         <Score match={match} />
         <MatchMeta match={match} />
-        <span className="p-record">REGISTRO #{String(match.id).padStart(4, "0")}</span>
+        <span className="p-record">
+          REGISTRO #{String(match.id).padStart(4, "0")}
+        </span>
       </section>
 
       <section className="p-match-context">
@@ -295,7 +221,11 @@ function MatchDetail({ match, players, navigate }) {
           <div className="p-connection-list">
             {match.equipo_local && (
               <button onClick={() => navigate("team", match.equipo_local.id)}>
-                <Crest small src={match.equipo_local.logo} name={match.equipo_local.nombre} />
+                <Crest
+                  small
+                  src={match.equipo_local.logo}
+                  name={match.equipo_local.nombre}
+                />
                 <span>
                   <small>EQUIPO LOCAL</small>
                   <strong>{match.equipo_local.nombre}</strong>
@@ -304,7 +234,9 @@ function MatchDetail({ match, players, navigate }) {
               </button>
             )}
             {match.competicion && (
-              <button onClick={() => navigate("competition", match.competicion.id)}>
+              <button
+                onClick={() => navigate("competition", match.competicion.id)}
+              >
                 <Icon name="trophy" />
                 <span>
                   <small>COMPETICIÓN</small>
@@ -314,8 +246,14 @@ function MatchDetail({ match, players, navigate }) {
               </button>
             )}
             {match.equipo_visitante && (
-              <button onClick={() => navigate("team", match.equipo_visitante.id)}>
-                <Crest small src={match.equipo_visitante.logo} name={match.equipo_visitante.nombre} />
+              <button
+                onClick={() => navigate("team", match.equipo_visitante.id)}
+              >
+                <Crest
+                  small
+                  src={match.equipo_visitante.logo}
+                  name={match.equipo_visitante.nombre}
+                />
                 <span>
                   <small>EQUIPO VISITANTE</small>
                   <strong>{match.equipo_visitante.nombre}</strong>
@@ -349,7 +287,10 @@ function MatchDetail({ match, players, navigate }) {
                 style={{
                   "--value": `${Math.round(
                     (stats.tiros_puerta_local /
-                      Math.max(1, stats.tiros_puerta_local + stats.tiros_puerta_visitante)) *
+                      Math.max(
+                        1,
+                        stats.tiros_puerta_local + stats.tiros_puerta_visitante,
+                      )) *
                       100,
                   )}%`,
                 }}
@@ -359,8 +300,9 @@ function MatchDetail({ match, players, navigate }) {
           </div>
         ) : (
           <p className="p-data-empty">
-            Este encuentro todavía no tiene estadísticas registradas. VÉRTICE
-            prefiere dejar el espacio vacío antes que rellenarlo con datos dudosos.
+            Este encuentro todavía no tiene estadísticas registradas. ONCE
+            prefiere dejar el espacio vacío antes que rellenarlo con datos
+            dudosos.
           </p>
         )}
       </section>
@@ -381,10 +323,10 @@ function MatchDetail({ match, players, navigate }) {
   );
 }
 
-function EntityDetail({ entity, kind, matches, navigate }) {
+function EntityDetail({ entity, kind, matches, navigate, demo }) {
   if (!entity) {
     return (
-      <main className="p-detail">
+      <main className="p-detail" id="public-content" tabIndex={-1}>
         <EmptyPublic title="No encontramos esa entidad">
           El registro solicitado no está disponible en el catálogo público.
         </EmptyPublic>
@@ -396,23 +338,28 @@ function EntityDetail({ entity, kind, matches, navigate }) {
     kind === "team"
       ? matches.filter(
           (match) =>
-            match.equipo_local_id === entity.id || match.equipo_visitante_id === entity.id,
+            match.equipo_local_id === entity.id ||
+            match.equipo_visitante_id === entity.id,
         )
       : matches.filter((match) => match.competicion_id === entity.id);
 
   return (
-    <main className="p-detail">
+    <main className="p-detail" id="public-content" tabIndex={-1}>
       <button className="p-back" onClick={() => navigate("home")}>
         <Icon name="arrow" /> Volver al archivo
       </button>
       <section className="p-entity-hero">
         <Crest src={entity.logo} name={entity.nombre} />
         <div>
-          <span className="p-kicker">{kind === "team" ? "EQUIPO" : "COMPETICIÓN"}</span>
+          <span className="p-kicker">
+            {kind === "team" ? "EQUIPO" : "COMPETICIÓN"}
+          </span>
           <h1>{entity.nombre}</h1>
           <p>
             {entity.pais || "Ámbito sin registrar"}
-            {entity.tipo ? ` · ${String(entity.tipo).replaceAll("_", " ")}` : ""}
+            {entity.tipo
+              ? ` · ${String(entity.tipo).replaceAll("_", " ")}`
+              : ""}
           </p>
         </div>
       </section>
@@ -420,7 +367,11 @@ function EntityDetail({ entity, kind, matches, navigate }) {
       {kind === "team" && (
         <section className="p-form-section">
           <span className="p-kicker">FORMA RECIENTE</span>
-          <FormRibbon matches={matches} teamId={entity.id} navigate={navigate} />
+          <FormRibbon
+            matches={matches}
+            teamId={entity.id}
+            navigate={navigate}
+          />
         </section>
       )}
 
@@ -432,12 +383,16 @@ function EntityDetail({ entity, kind, matches, navigate }) {
               .slice()
               .sort((a, b) => b.id - a.id)
               .map((season) => (
-                <article key={season.id} data-active={season.activa || undefined}>
+                <article
+                  key={season.id}
+                  data-active={season.activa || undefined}
+                >
                   <small>{season.activa ? "EN CURSO" : "TEMPORADA"}</small>
                   <strong>{season.nombre}</strong>
                   <span>
-                    {[season.fecha_inicio, season.fecha_fin].filter(Boolean).join(" → ") ||
-                      "Fechas por completar"}
+                    {[season.fecha_inicio, season.fecha_fin]
+                      .filter(Boolean)
+                      .join(" → ") || "Fechas por completar"}
                   </span>
                 </article>
               ))}
@@ -447,7 +402,7 @@ function EntityDetail({ entity, kind, matches, navigate }) {
 
       {kind === "competition" && (
         <>
-          <StandingsTable competition={entity} />
+          {!demo && <StandingsTable competition={entity} />}
           <CompetitionFlow matches={related} navigate={navigate} />
         </>
       )}
@@ -479,7 +434,7 @@ function EntityDetail({ entity, kind, matches, navigate }) {
 function PlayerDetail({ player, matches, navigate }) {
   if (!player) {
     return (
-      <main className="p-detail">
+      <main className="p-detail" id="public-content" tabIndex={-1}>
         <EmptyPublic title="No encontramos ese jugador">
           La ficha solicitada todavía no está disponible.
         </EmptyPublic>
@@ -492,12 +447,15 @@ function PlayerDetail({ player, matches, navigate }) {
   );
   const events = matches.flatMap((match) =>
     (match.eventos || [])
-      .filter((event) => event.jugador_id === player.id || event.asistente_id === player.id)
+      .filter(
+        (event) =>
+          event.jugador_id === player.id || event.asistente_id === player.id,
+      )
       .map((event) => ({ ...event, match })),
   );
 
   return (
-    <main className="p-detail">
+    <main className="p-detail" id="public-content" tabIndex={-1}>
       <button className="p-back" onClick={() => navigate("home")}>
         <Icon name="arrow" /> Volver al archivo
       </button>
@@ -557,34 +515,78 @@ function PlayerDetail({ player, matches, navigate }) {
 }
 
 export default function PublicApp() {
-  const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
+  const demo = new URLSearchParams(window.location.search).get("demo") === "1";
+  const [route, setRoute] = useState(() =>
+    routeFromPath(window.location.pathname),
+  );
   const [matches, setMatches] = useState([]);
   const [competitions, setCompetitions] = useState([]);
   const [teams, setTeams] = useState([]);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      apiCollection("/public/partidos/"),
-      apiCollection("/public/competiciones/"),
-      apiCollection("/public/equipos/"),
-      apiCollection("/public/jugadores/"),
-    ])
+    let current = true;
+    const controller = new AbortController();
+    const request = demo
+      ? import("./demoData").then(({ demoData: d }) => [
+          d.matches,
+          d.competitions,
+          d.teams,
+          d.players,
+        ])
+      : Promise.all([
+          apiCollection("/public/partidos/", { signal: controller.signal }),
+          apiCollection("/public/competiciones/", {
+            signal: controller.signal,
+          }),
+          apiCollection("/public/equipos/", { signal: controller.signal }),
+          apiCollection("/public/jugadores/", { signal: controller.signal }),
+        ]);
+    request
       .then(([matchData, competitionData, teamData, playerData]) => {
+        if (!current) return;
         setMatches(matchData);
         setCompetitions(competitionData);
         setTeams(teamData);
         setPlayers(playerData);
       })
-      .catch(() => setLoadError("No pudimos abrir el archivo público."))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        if (current)
+          setLoadError(
+            "No pudimos conectar con el servidor local. Comprueba que la API esté en marcha e inténtalo de nuevo.",
+          );
+      })
+      .finally(() => {
+        if (current) setLoading(false);
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [demo, attempt]);
+
+  useEffect(() => {
+    const titles = {
+      home: "El fútbol, conectado",
+      matches: "Partidos",
+      teams: "Equipos",
+      competitions: "Competiciones",
+      match: "El partido",
+      team: "El equipo",
+      competition: "La competición",
+      player: "El jugador",
+    };
+    document.title = `ONCE · ${titles[route.type] || "Explorar"}${demo ? " · Demo" : ""}`;
+  }, [route.type, demo]);
 
   useEffect(() => {
     const onPopState = () =>
-      runViewTransition(() => setRoute(routeFromPath(window.location.pathname)));
+      runViewTransition(() =>
+        setRoute(routeFromPath(window.location.pathname)),
+      );
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -592,22 +594,30 @@ export default function PublicApp() {
   const navigate = (type, id) => {
     const path = publicPath(type, id);
     if (path === window.location.pathname) return;
-    window.history.pushState({}, "", path);
+    window.history.pushState({}, "", `${path}${demo ? "?demo=1" : ""}`);
     runViewTransition(() => setRoute(routeFromPath(path)));
     window.scrollTo({ top: 0, behavior: "auto" });
   };
 
   const selected = useMemo(() => {
-    if (route.type === "team") return teams.find((item) => item.id === route.id);
-    if (route.type === "competition") return competitions.find((item) => item.id === route.id);
-    if (route.type === "player") return players.find((item) => item.id === route.id);
+    if (route.type === "team")
+      return teams.find((item) => item.id === route.id);
+    if (route.type === "competition")
+      return competitions.find((item) => item.id === route.id);
+    if (route.type === "player")
+      return players.find((item) => item.id === route.id);
     return null;
   }, [route, teams, competitions, players]);
 
   if (loading) {
     return (
-      <PublicShell navigate={navigate}>
-        <main className="p-loading">
+      <PublicShell navigate={navigate} route={route} demo={demo}>
+        <main
+          className="p-loading"
+          id="public-content"
+          tabIndex={-1}
+          aria-busy="true"
+        >
           <span className="p-loader" />
           <p>Abriendo el archivo del juego…</p>
         </main>
@@ -617,9 +627,24 @@ export default function PublicApp() {
 
   if (loadError) {
     return (
-      <PublicShell navigate={navigate}>
-        <main className="p-detail">
+      <PublicShell navigate={navigate} route={route} demo={demo}>
+        <main className="p-detail" id="public-content" tabIndex={-1}>
           <EmptyPublic title="El archivo no respondió">{loadError}</EmptyPublic>
+          <div className="once-error-actions">
+            <button
+              className="once-button"
+              onClick={() => {
+                setLoading(true);
+                setLoadError("");
+                setAttempt((value) => value + 1);
+              }}
+            >
+              Volver a intentar <Icon name="refresh" />
+            </button>
+            <a className="once-text-link" href="/explore?demo=1">
+              Explorar la demostración <Icon name="arrow" />
+            </a>
+          </div>
         </main>
       </PublicShell>
     );
@@ -628,15 +653,48 @@ export default function PublicApp() {
   return (
     <PublicShell
       navigate={navigate}
+      route={route}
+      demo={demo}
       searchData={{ teams, competitions, players, matches }}
     >
       {route.type === "home" && (
-        <Home
+        <ExploreHome
           matches={matches}
           competitions={competitions}
           teams={teams}
           navigate={navigate}
+          demo={demo}
         />
+      )}
+      {route.type === "matches" && (
+        <main id="public-content" tabIndex={-1}>
+          <MatchExplorer
+            matches={matches}
+            competitions={competitions}
+            navigate={navigate}
+            full
+          />
+        </main>
+      )}
+      {route.type === "teams" && (
+        <main id="public-content" tabIndex={-1}>
+          <EntityExplorer
+            key="teams"
+            kind="team"
+            entities={teams}
+            navigate={navigate}
+          />
+        </main>
+      )}
+      {route.type === "competitions" && (
+        <main id="public-content" tabIndex={-1}>
+          <EntityExplorer
+            key="competitions"
+            kind="competition"
+            entities={competitions}
+            navigate={navigate}
+          />
+        </main>
       )}
       {route.type === "match" && (
         <MatchDetail
@@ -647,6 +705,7 @@ export default function PublicApp() {
       )}
       {(route.type === "team" || route.type === "competition") && (
         <EntityDetail
+          demo={demo}
           entity={selected}
           kind={route.type}
           matches={matches}

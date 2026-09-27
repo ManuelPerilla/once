@@ -21,16 +21,25 @@ def wait_for_api(base_url, attempts=30, interval=1, timeout=3):
         try:
             with urllib.request.urlopen(base_url + "/api/partidos/", timeout=timeout) as response:
                 # Una respuesta pública 200 NO significa que la autenticación esté bien.
-                raise AssertionError(f"La ruta protegida devolvió HTTP {response.status}, se esperaba 401")
+                raise AssertionError(
+                    f"La ruta protegida devolvió HTTP {response.status}, se esperaba 401"
+                )
         except urllib.error.HTTPError as error:
             status = error.code
             error.close()
             if status == 401:
                 return
             if status not in {502, 503, 504}:
-                raise AssertionError(f"La comprobación de disponibilidad devolvió HTTP {status}") from error
+                raise AssertionError(
+                    f"La comprobación de disponibilidad devolvió HTTP {status}"
+                ) from error
             last_error = f"HTTP {status} del proxy durante el arranque"
-        except (urllib.error.URLError, ConnectionError, TimeoutError, http.client.HTTPException) as error:
+        except (
+            urllib.error.URLError,
+            ConnectionError,
+            TimeoutError,
+            http.client.HTTPException,
+        ) as error:
             # Un puerto publicado por Docker puede resetear/cerrar conexiones antes
             # de que NGINX haya terminado su entrypoint. No siempre es un URLError.
             last_error = type(error).__name__
@@ -68,7 +77,9 @@ def check_stack(base_url, username, password):
         cookie = SimpleCookie()
         cookie.load(response.headers.get("Set-Cookie", ""))
         assert response.status == 200 and json.load(response)["ok"], "El login no tuvo éxito"
-        assert "vertice_token" in cookie and cookie["vertice_token"]["httponly"], "Falta la cookie HttpOnly"
+        assert "vertice_token" in cookie and cookie["vertice_token"]["httponly"], (
+            "Falta la cookie HttpOnly"
+        )
         assert cookie["vertice_token"]["path"] == "/", "La cookie no cubre las rutas del panel"
     print("OK: login y cookie HttpOnly.")
 
@@ -77,13 +88,15 @@ def check_stack(base_url, username, password):
             assert isinstance(json.load(response), list), f"El catálogo {name} no es una lista"
     print("OK: los cuatro catálogos responden con la sesión autenticada.")
     with opener.open(base_url + "/api/openapi.json", timeout=5) as response:
-        assert json.load(response)["info"]["title"] == "VÉRTICE API", "OpenAPI no corresponde a VÉRTICE"
+        assert json.load(response)["info"]["title"] == "ONCE API", "OpenAPI no corresponde a ONCE"
     with opener.open(base_url + "/api/docs", timeout=5) as response:
         assert b"/api/openapi.json" in response.read(), "La documentación perdió el prefijo /api"
     with opener.open(base_url + "/", timeout=5) as response:
         assert 'id="root"' in response.read().decode(), "NGINX no sirve el frontend"
     print("OK: documentación y frontend accesibles.")
-    with opener.open(urllib.request.Request(base_url + "/api/logout", data=b""), timeout=5) as response:
+    with opener.open(
+        urllib.request.Request(base_url + "/api/logout", data=b""), timeout=5
+    ) as response:
         assert json.load(response)["ok"], "El logout no tuvo éxito"
     assert not any(cookie.name == "vertice_token" for cookie in jar), "Logout no eliminó la cookie"
     expect_unauthorized(opener, base_url + "/api/partidos/", "Acceso después de logout")

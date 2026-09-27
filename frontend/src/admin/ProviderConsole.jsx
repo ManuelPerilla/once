@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api";
 import { Icon } from "../components/ui/Icon";
+import { CatalogImport } from "./CatalogImport";
 
 const mappingTypes = [
   ["competition", "Competición"],
@@ -11,7 +12,14 @@ const mappingTypes = [
   ["player", "Jugador"],
 ];
 
-export function ProviderConsole() {
+const readSources = (signal) =>
+  Promise.all([
+    apiRequest("/providers/api-football/status", { signal }),
+    apiRequest("/providers/mappings/", { signal }),
+    apiRequest("/media/", { signal }),
+  ]);
+
+export function ProviderConsole({ onImported }) {
   const [status, setStatus] = useState(null);
   const [mappings, setMappings] = useState([]);
   const [media, setMedia] = useState([]);
@@ -35,21 +43,24 @@ export function ProviderConsole() {
     qid: "",
   });
 
-  const refreshSources = async () => {
-    const [providerStatus, providerMappings, mediaAssets] = await Promise.all([
-      apiRequest("/providers/api-football/status"),
-      apiRequest("/providers/mappings/"),
-      apiRequest("/media/"),
-    ]);
+  const acceptSources = ([providerStatus, providerMappings, mediaAssets]) => {
     setStatus(providerStatus);
     setMappings(providerMappings);
     setMedia(mediaAssets);
   };
+  const refreshSources = async () => acceptSources(await readSources());
 
   useEffect(() => {
-    refreshSources().catch(() =>
-      setMessage("No se pudo consultar el estado de las fuentes."),
-    );
+    const controller = new AbortController();
+    readSources(controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) acceptSources(result);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError")
+          setMessage("No se pudo consultar el estado de las fuentes.");
+      });
+    return () => controller.abort();
   }, []);
 
   const inspectFixtures = async (event) => {
@@ -176,7 +187,7 @@ export function ProviderConsole() {
           <span className="v-eyebrow">04 / FUENTES Y TRAZABILIDAD</span>
           <h2>La mesa de fuentes.</h2>
           <p>
-            VÉRTICE conserva sus propios IDs. Los proveedores aportan datos; no
+            ONCE conserva sus propios IDs. Los proveedores aportan datos; no
             gobiernan el modelo.
           </p>
         </div>
@@ -185,7 +196,9 @@ export function ProviderConsole() {
           data-online={status?.configured || undefined}
         >
           <i />
-          {status?.configured ? "API-Football listo" : "API-Football sin configurar"}
+          {status?.configured
+            ? "API-Football listo"
+            : "API-Football sin configurar"}
         </span>
       </div>
 
@@ -202,17 +215,26 @@ export function ProviderConsole() {
         </article>
         <article>
           <small>WIKIDATA</small>
-          <strong>REST</strong>
-          <span>Disponible para enriquecimiento manual</span>
+          <strong>CC0</strong>
+          <span>Catálogos abiertos y procedencia verificable</span>
         </article>
       </div>
+
+      <CatalogImport
+        onImported={async () => {
+          await refreshSources();
+          await onImported?.();
+        }}
+      />
 
       <div className="v-source-workbench">
         <form className="v-source-preview" onSubmit={inspectFixtures}>
           <div>
             <span className="v-eyebrow">PREVIEW / SIN ESCRITURA</span>
             <strong>Inspeccionar fixtures</strong>
-            <small>Comprueba cobertura antes de crear mappings o sincronizar.</small>
+            <small>
+              Comprueba cobertura antes de crear mappings o sincronizar.
+            </small>
           </div>
           <label>
             <span>League ID</span>
@@ -231,7 +253,10 @@ export function ProviderConsole() {
               onChange={(event) => setSeason(event.target.value)}
             />
           </label>
-          <button className="v-btn v-btn-dark" disabled={busy || !status?.configured}>
+          <button
+            className="v-btn v-btn-dark"
+            disabled={busy || !status?.configured}
+          >
             {busy ? "Consultando…" : "Previsualizar"}
             <Icon name="arrow" />
           </button>
@@ -241,7 +266,9 @@ export function ProviderConsole() {
           <div>
             <span className="v-eyebrow">MAPPING / ID CANÓNICO</span>
             <strong>Vincular entidad externa</strong>
-            <small>El ID local sigue siendo la identidad principal de VÉRTICE.</small>
+            <small>
+              El ID local sigue siendo la identidad principal de ONCE.
+            </small>
           </div>
           <label>
             <span>Entidad</span>
@@ -255,7 +282,9 @@ export function ProviderConsole() {
               }
             >
               {mappingTypes.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>
+                  {label}
+                </option>
               ))}
             </select>
           </label>
@@ -265,7 +294,10 @@ export function ProviderConsole() {
               inputMode="numeric"
               value={mapping.local_id}
               onChange={(event) =>
-                setMapping((current) => ({ ...current, local_id: event.target.value }))
+                setMapping((current) => ({
+                  ...current,
+                  local_id: event.target.value,
+                }))
               }
               placeholder="Ej. 12"
             />
@@ -275,7 +307,10 @@ export function ProviderConsole() {
             <input
               value={mapping.external_id}
               onChange={(event) =>
-                setMapping((current) => ({ ...current, external_id: event.target.value }))
+                setMapping((current) => ({
+                  ...current,
+                  external_id: event.target.value,
+                }))
               }
               placeholder="Ej. 1001"
             />
@@ -310,7 +345,10 @@ export function ProviderConsole() {
               onChange={(event) => setSeasonId(event.target.value)}
             />
           </label>
-          <button className="v-btn v-btn-dark" disabled={busy || !status?.configured}>
+          <button
+            className="v-btn v-btn-dark"
+            disabled={busy || !status?.configured}
+          >
             Sincronizar fixtures <Icon name="refresh" />
           </button>
         </form>
@@ -320,8 +358,8 @@ export function ProviderConsole() {
             <span className="v-eyebrow">IMPORT / WIKIDATA + COMMONS</span>
             <strong>Traer imagen con licencia</strong>
             <small>
-              Guarda la URL original, autoría, crédito y licencia. No descarga ni
-              republica el archivo automáticamente.
+              Guarda la URL original, autoría, crédito y licencia. No descarga
+              ni republica el archivo automáticamente.
             </small>
           </div>
           <label>
@@ -338,7 +376,9 @@ export function ProviderConsole() {
               {mappingTypes
                 .filter(([value]) => value !== "match")
                 .map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
             </select>
           </label>
@@ -379,8 +419,8 @@ export function ProviderConsole() {
             <span className="v-eyebrow">SYNC / MATCH DETAIL</span>
             <strong>Profundizar un partido</strong>
             <small>
-              Importa eventos, alineaciones, jugadores y estadísticas en una capa
-              trazable separada de los datos manuales.
+              Importa eventos, alineaciones, jugadores y estadísticas en una
+              capa trazable separada de los datos manuales.
             </small>
           </div>
           <label>
@@ -391,7 +431,10 @@ export function ProviderConsole() {
               onChange={(event) => setMatchId(event.target.value)}
             />
           </label>
-          <button className="v-btn v-btn-dark" disabled={busy || !status?.configured}>
+          <button
+            className="v-btn v-btn-dark"
+            disabled={busy || !status?.configured}
+          >
             Sincronizar detalle <Icon name="pitch" />
           </button>
         </form>
@@ -400,7 +443,8 @@ export function ProviderConsole() {
       {!status?.configured && (
         <p className="v-source-note">
           Configura <code>API_FOOTBALL_KEY</code> en tu entorno para habilitar
-          previews y sincronización. La clave permanece únicamente en el backend.
+          previews y sincronización. La clave permanece únicamente en el
+          backend.
         </p>
       )}
 
@@ -416,11 +460,14 @@ export function ProviderConsole() {
       {preview && (
         <div className="v-source-results">
           <span>
-            {preview.results ?? preview.response?.length ?? 0} fixtures devueltos
+            {preview.results ?? preview.response?.length ?? 0} fixtures
+            devueltos
           </span>
           {(preview.response || []).slice(0, 4).map((fixture) => (
             <article key={fixture.fixture?.id}>
-              <small>{fixture.league?.round || fixture.league?.name || "Fixture"}</small>
+              <small>
+                {fixture.league?.round || fixture.league?.name || "Fixture"}
+              </small>
               <strong>
                 {fixture.teams?.home?.name || "Local"} <b>vs</b>{" "}
                 {fixture.teams?.away?.name || "Visitante"}
@@ -440,7 +487,9 @@ export function ProviderConsole() {
           {(syncResult.skipped || []).slice(0, 8).map((item) => (
             <article key={item.fixture_id || `${item.home}-${item.away}`}>
               <small>PENDIENTE / {item.reason}</small>
-              <strong>{item.home || "Equipo"} <b>vs</b> {item.away || "Equipo"}</strong>
+              <strong>
+                {item.home || "Equipo"} <b>vs</b> {item.away || "Equipo"}
+              </strong>
               <span>Fixture {item.fixture_id || "sin ID"}</span>
             </article>
           ))}
@@ -453,11 +502,14 @@ export function ProviderConsole() {
           <article>
             <small>PARTIDO #{syncResult.match_id}</small>
             <strong>
-              {syncResult.events} eventos · {syncResult.lineup_entries} alineaciones
+              {syncResult.events} eventos · {syncResult.lineup_entries}{" "}
+              alineaciones
             </strong>
             <span>
               {syncResult.players_touched} jugadores ·{" "}
-              {syncResult.statistics ? "estadísticas importadas" : "sin estadísticas completas"}
+              {syncResult.statistics
+                ? "estadísticas importadas"
+                : "sin estadísticas completas"}
             </span>
           </article>
         </div>

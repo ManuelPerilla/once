@@ -1,13 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-async function expectArtwork(page, asset) {
-  const artwork = page.locator(".v-hero .v-section-art img");
-  await expect(artwork).toHaveAttribute("src", `/art/${asset}.webp`);
-  await expect
-    .poll(() =>
-      artwork.evaluate((image) => image.complete && image.naturalWidth > 0),
-    )
-    .toBe(true);
+async function expectArtwork(page) {
+  const artwork = page.locator(".v-hero .once-pitch-art");
+  await expect(artwork).toBeAttached();
+  if (page.viewportSize().width > 600) await expect(artwork).toBeVisible();
 }
 
 test.beforeEach(async ({ page, baseURL }) => {
@@ -180,6 +176,8 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
   await dialog
     .getByLabel("Equipo visitante", { exact: true })
     .selectOption(String(visitor.id));
+  await dialog.getByLabel("Fecha y hora", { exact: true }).fill("2026-09-28T19:30");
+  await dialog.getByLabel("Jornada", { exact: true }).fill("Fecha 12");
   await dialog.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -207,6 +205,8 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
     (item) =>
       item.competicion_id === comp.id && item.equipo_local_id === local.id,
   );
+  expect(new Date(storedMatch.fecha).getTime()).toBe(new Date("2026-09-28T19:30").getTime());
+  expect(storedMatch.jornada).toBe("Fecha 12");
   await page
     .getByRole("button", {
       name: `Eliminar partido ${storedMatch.id}`,
@@ -251,7 +251,7 @@ test("mobile home, catalogue and modal stay usable with real data", async ({
     page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     );
-  for (const width of [320, 390, 768, 1440]) {
+  for (const width of [320, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await fitsScreen(), `Home fits ${width}px`).toBe(true);
     await expectArtwork(page, "stadium");

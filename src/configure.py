@@ -2,9 +2,9 @@
 
 import getpass
 import os
-from pathlib import Path
 import re
 import secrets
+from pathlib import Path
 
 from src.security import hash_password
 
@@ -22,10 +22,14 @@ def main():
     if password != getpass.getpass("Repite la contraseña: "):
         raise SystemExit("Las contraseñas no coinciden.")
     print("Si conservas un volumen PostgreSQL, introduce su contraseña actual.")
-    database_password = getpass.getpass("Contraseña de PostgreSQL (Enter genera una para una base nueva): ")
+    database_password = getpass.getpass(
+        "Contraseña de PostgreSQL (Enter genera una para una base nueva): "
+    )
     database_password = database_password or secrets.token_hex(24)
     if any(char in database_password for char in "\r\n'\\"):
-        raise SystemExit("La contraseña de PostgreSQL no puede incluir saltos de línea, comillas simples o barras inversas.")
+        raise SystemExit(
+            "La contraseña de PostgreSQL no puede incluir saltos de línea, comillas simples o barras inversas."
+        )
     config = (
         f"SECRET_KEY={secrets.token_hex(32)}\n"
         f"ADMIN_USERNAME={username}\n"

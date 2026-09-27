@@ -1,6 +1,6 @@
 # Experiencia y diseño
 
-VÉRTICE tiene dos públicos diferentes. Esta distinción guía el diseño: el administrador organiza el fútbol; el producto público permitirá explorarlo.
+ONCE tiene dos públicos diferentes. Esta distinción guía el diseño: el administrador organiza el fútbol; el producto público permite explorarlo.
 
 ## El administrador actual
 
@@ -14,7 +14,7 @@ Primero presenta el estado del espacio de trabajo: competiciones, equipos, parti
 
 Después aparecen los últimos partidos registrados, las referencias que necesitan revisión y la participación por competición. Si todavía no hay datos, se explica cómo empezar. No se muestran porcentajes de crecimiento, tendencias ni actividad ficticia.
 
-“Últimos registrados” no significa “más recientes en el calendario”. El modelo aún no guarda fechas de encuentro. “En vivo” tampoco significa que haya una actualización automática: es el estado almacenado.
+“Últimos registrados” no significa “más recientes en el calendario”. Los partidos ya admiten fecha y hora; esa lista se ordena por registro, no por calendario. “En vivo” tampoco significa que haya una actualización automática: es el estado almacenado.
 
 ### Catálogo
 
@@ -36,9 +36,9 @@ Los marcadores tienen jerarquía propia. Un encuentro programado muestra “vs�
 
 Barlow Condensed da carácter a titulares y cifras; DM Sans sostiene las tareas y la lectura. Las fuentes se sirven desde el proyecto.
 
-El verde profundo identifica el espacio, el fondo claro deja respirar la información y el naranja señala las acciones principales y la sección activa. Las líneas, números de archivo y pequeños rótulos remiten a una ficha técnica de fútbol. No llevan información imprescindible por sí solos.
+El azul noche identifica el espacio, el fondo claro deja respirar la información y el lima señala las acciones principales. Las líneas, números de archivo y pequeños rótulos remiten a una ficha técnica de fútbol. No llevan información imprescindible por sí solos.
 
-Los renders son una colección de objetos del juego: estadio, trofeo y escudos, acreditaciones, balón y silbato. Comparten materiales y luz. Se sirven como WebP locales y están marcados como decorativos; ningún botón ni dato está dibujado dentro de una imagen.
+La ilustración principal es una cancha táctica en SVG/CSS. La portada permite pausar su animación. Los recursos decorativos anteriores se conservan en el proyecto; ningún botón ni dato depende de texto dibujado en una imagen.
 
 ## Accesibilidad y móvil
 

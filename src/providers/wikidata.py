@@ -6,7 +6,6 @@ import httpx
 
 from .api_football import ProviderError
 
-
 QID_PATTERN = re.compile(r"^Q[1-9][0-9]*$", re.IGNORECASE)
 TAG_PATTERN = re.compile(r"<[^>]+>")
 
@@ -25,7 +24,7 @@ class WikidataClient:
         self.timeout = timeout
         self.user_agent = os.getenv(
             "WIKIDATA_USER_AGENT",
-            "Vertice/0.1 (https://github.com/MizunDev/vertice; football knowledge project)",
+            "ONCE/0.2 (personal local football catalog)",
         )
 
     @property
@@ -56,6 +55,53 @@ class WikidataClient:
             raise ProviderError("Wikidata no devolvió la entidad solicitada.")
         return entity
 
+    def entities(self, qids: list[str], *, interactive: bool = False) -> dict:
+        """Read a bounded batch in one request, including statement references.
+
+        Cache belongs to the ingestion service, not to the public page lifecycle.
+        Do not retry a 429/maxlag response immediately or silently omit records.
+        """
+        ids = list(dict.fromkeys(qid.upper() for qid in qids))
+        if not ids or len(ids) > 50 or any(not QID_PATTERN.fullmatch(qid) for qid in ids):
+            raise ValueError("Solicita entre 1 y 50 identificadores válidos de Wikidata.")
+        params = {
+            "action": "wbgetentities",
+            "format": "json",
+            "ids": "|".join(ids),
+            "languages": "es|en",
+            "props": "labels|aliases|descriptions|claims|info",
+        }
+        # Wikimedia permits interactive requests to omit maxlag. Background jobs
+        # retain it: https://www.mediawiki.org/wiki/Manual:Maxlag_parameter
+        if not interactive:
+            params["maxlag"] = 5
+        try:
+            response = httpx.get(
+                "https://www.wikidata.org/w/api.php",
+                params=params,
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            if response.status_code == 429:
+                raise ProviderError(
+                    "Wikidata pide reducir las consultas. Espera antes de volver a intentar."
+                )
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise ProviderError(
+                "No se pudo obtener el catálogo de Wikidata. Inténtalo más tarde."
+            ) from exc
+        if not isinstance(payload, dict):
+            raise ProviderError("Wikidata devolvió una respuesta no válida.")
+        if isinstance(payload.get("error"), dict) and payload["error"].get("code") == "maxlag":
+            raise ProviderError(
+                "Wikidata está actualizando sus réplicas y pide esperar. No se modificó el catálogo; inténtalo más tarde."
+            )
+        if payload.get("error") or not isinstance(payload.get("entities"), dict):
+            raise ProviderError("Wikidata no pudo completar la consulta. Inténtalo más tarde.")
+        return payload["entities"]
+
     def commons_media(self, qid: str) -> dict:
         entity = self.entity(qid)
         claims = entity.get("claims") or {}
@@ -63,12 +109,7 @@ class WikidataClient:
         if not image_claims:
             raise ProviderError("La entidad de Wikidata no tiene imagen P18.")
 
-        filename = (
-            image_claims[0]
-            .get("mainsnak", {})
-            .get("datavalue", {})
-            .get("value")
-        )
+        filename = image_claims[0].get("mainsnak", {}).get("datavalue", {}).get("value")
         if not filename:
             raise ProviderError("Wikidata devolvió una imagen P18 sin nombre de archivo.")
 

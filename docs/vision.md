@@ -1,29 +1,11 @@
-# Qué queremos construir
+# Qué construimos con ONCE
 
-VÉRTICE nace de una forma bastante común de ver fútbol: buscas un resultado y terminas mirando otra cosa. El equipo que sorprendió en una copa, un jugador que cambió de club, una competición de la que sabías poco.
+ONCE parte de una forma habitual de ver fútbol: buscas un resultado y terminas descubriendo un equipo, un jugador o un torneo. La experiencia conecta esas piezas sin obligarte a interpretar todas sus estadísticas de entrada.
 
-La idea es que esas conexiones sean fáciles de seguir. Un partido debe contar algo más que un marcador, sin obligarte a leer todas sus estadísticas para entenderlo.
+El primer foco es Colombia: Primera A, Primera B y Copa Colombia. CONMEBOL amplía ese contexto. Es una dirección de producto, no una promesa de cobertura exhaustiva o resultados en tiempo real.
 
-## Por dónde empezar
+Hoy funcionan el administrador, las listas y fichas públicas, una demo aislada y la importación revisada de un catálogo abierto. Las historias editoriales, el modelo comercial y las funciones de seguimiento personal aún deben definirse y probarse con usuarios.
 
-El primer foco es Colombia: Liga BetPlay, Torneo BetPlay y Copa BetPlay. Libertadores y Sudamericana amplían ese contexto. Es una dirección de producto, no una promesa de cobertura actual.
+Quien administra necesita corregir y conectar datos. Quien explora necesita contexto y caminos para continuar. Comparten marca y componentes, pero tienen pantallas y tareas distintas.
 
-Hoy estamos construyendo la base: catálogo, relaciones entre equipos y torneos, encuentros y reglas que eviten datos incoherentes. El administrador permite trabajar con esa información mientras se desarrolla la experiencia pública.
-
-## Dos experiencias distintas
-
-Quien administra necesita encontrar, corregir y conectar datos. Quien viene a ver fútbol necesita contexto y caminos para seguir explorando. Pueden compartir identidad visual; no deberían compartir la misma pantalla de entrada.
-
-El panel actual es para el primer caso. La portada pública, los perfiles de jugadores y la navegación entre historias siguen pendientes.
-
-## Qué vale la pena cuidar
-
-La profundidad debe estar disponible, no impuesta. Mostrar cuatro estadísticas fiables es mejor que rellenar una ficha con veinte valores dudosos. Si una fuente no ofrece un dato, VÉRTICE debe reconocer ese límite.
-
-Las competiciones tampoco tienen una única forma. Grupos, jornadas, llaves, fases e ida y vuelta necesitan un modelo que los represente sin depender de cómo los nombre un proveedor.
-
-Los datos deben poder rastrearse hasta su origen. Primero organizadores, ligas y federaciones; después proveedores especializados u otras fuentes que se puedan verificar. La ingesta automática todavía no está implementada.
-
-## Un proyecto para aprender
-
-VÉRTICE también sirve para aprender programación trabajando sobre algo que importa. Cada pieza debería resolver un problema entendible. No hace falta montar infraestructura por adelantado ni congelar decisiones que todavía no se han probado con datos reales.
+La profundidad debe estar disponible sin imponerse. Una ficha reconoce los datos que faltan; un proveedor aporta observaciones y no controla la identidad local del fútbol. Las siguientes etapas dependen de mejorar la cobertura, las relaciones por temporada y la confianza en la información.

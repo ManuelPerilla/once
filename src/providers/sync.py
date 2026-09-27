@@ -6,9 +6,9 @@ from src.models import (
     AlineacionPartido,
     Competicion,
     Equipo,
+    Estadio,
     EstadisticasPartido,
     EstadoPartido,
-    Estadio,
     EventoPartido,
     Jugador,
     JugadorEquipo,
@@ -17,7 +17,6 @@ from src.models import (
     ProviderSnapshot,
     Temporada,
 )
-
 
 PROVIDER = "api-football"
 FINISHED_STATUSES = {"FT", "AET", "PEN", "AWD", "WO"}
@@ -476,12 +475,15 @@ def sync_match_detail(
         home_shots = _stat_value(home_stats, "Shots on Goal")
         away_shots = _stat_value(away_stats, "Shots on Goal")
 
-        if all(value is not None for value in (
-            home_possession,
-            away_possession,
-            home_shots,
-            away_shots,
-        )):
+        if all(
+            value is not None
+            for value in (
+                home_possession,
+                away_possession,
+                home_shots,
+                away_shots,
+            )
+        ):
             session.add(
                 EstadisticasPartido(
                     partido_id=match_id,

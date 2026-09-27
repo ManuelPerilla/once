@@ -7,3 +7,10 @@ venv/
 !.env.example
 .pytest_cache/
 *.db
+.local/
+.pnpm-store/
+.ruff_cache/
+*.dump
+*.backup
+once-images.tar
+.idea/

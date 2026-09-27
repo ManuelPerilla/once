@@ -2,4 +2,8 @@
 @import "./styles/tokens.css";
 @import "./styles/motion.css";
 
-/* Feature styles currently live in admin.css while the public surface is built separately. */
+/* Preserve the established cascade independently of lazy-loaded JavaScript. */
+@import "./admin.css";
+@import "./admin-once.css";
+@import "./public/public.css";
+@import "./public/once.css";

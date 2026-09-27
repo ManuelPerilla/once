@@ -7,7 +7,6 @@ import secrets
 from dataclasses import dataclass
 from functools import lru_cache
 
-
 PASSWORD_ITERATIONS = 600_000
 
 
@@ -34,9 +33,7 @@ def verify_password(password: str, encoded: str) -> bool:
         salt, expected = _password_hash_parts(encoded)
     except ValueError:
         return False
-    actual = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS
-    )
+    actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS)
     return hmac.compare_digest(actual, expected)
 
 
@@ -63,7 +60,9 @@ def get_auth_settings() -> AuthSettings:
     try:
         _password_hash_parts(password_hash)
     except ValueError as exc:
-        raise RuntimeError("ADMIN_PASSWORD_HASH no es válido; genera uno con src.configure.") from exc
+        raise RuntimeError(
+            "ADMIN_PASSWORD_HASH no es válido; genera uno con src.configure."
+        ) from exc
     cookie_secure = os.getenv("COOKIE_SECURE", "true").lower()
     if cookie_secure not in {"true", "false"}:
         raise RuntimeError("COOKIE_SECURE debe ser true o false.")

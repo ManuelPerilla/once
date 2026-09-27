@@ -1,0 +1,797 @@
+/* ONCE operations workspace */
+.v-app {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+}
+.v-masthead {
+  grid-column: 1 / -1;
+  border-top: 0;
+}
+.v-masthead-inner {
+  max-width: none;
+  padding: 23px 32px;
+  min-height: 89px;
+}
+.v-workspace-id span {
+  font-size: 9px;
+  letter-spacing: 1.8px;
+}
+.once-admin-explore {
+  color: #c4cfe0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-decoration: none;
+  font-size: 11px;
+}
+.once-admin-explore svg {
+  width: 14px;
+  transform: rotate(-45deg);
+}
+.v-navigation {
+  grid-column: 1;
+  grid-row: 2 / 4;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 30px 16px;
+  margin: 0;
+  border-right: 1px solid var(--line);
+  background: white;
+  max-width: none;
+}
+.once-sidebar-label {
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  color: #8390a4;
+  padding: 4px 12px 22px;
+}
+.v-nav {
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 24px;
+}
+.v-nav button {
+  min-height: 47px;
+  padding: 12px;
+  gap: 12px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.v-nav button > svg {
+  opacity: 1;
+  transform: none;
+  width: 17px;
+  margin: 0;
+}
+.v-nav button small {
+  margin-left: auto;
+  font-size: 8px;
+  color: #8796aa;
+}
+.v-nav button[aria-current="page"] {
+  background: var(--navy);
+  color: white;
+}
+.v-nav button[aria-current="page"] small {
+  color: var(--accent);
+}
+.v-nav button[aria-current="page"]::after {
+  display: none;
+}
+.v-nav button:hover:not([aria-current="page"]) {
+  background: var(--soft);
+  color: var(--ink);
+}
+.v-nav-caption {
+  margin-top: 50px;
+  align-self: stretch;
+  padding: 18px 12px;
+  text-align: left;
+  line-height: 2.1;
+  border-top: 1px solid var(--line);
+  font-size: 6px;
+  letter-spacing: 0.9px;
+}
+.v-main {
+  grid-column: 2;
+  min-width: 0;
+}
+.v-content {
+  padding: 0 32px;
+  max-width: 1456px;
+}
+.v-page-intro {
+  padding: 28px 0;
+}
+.v-page-intro h1 {
+  font-size: 17px;
+}
+.v-section-kicker {
+  font-size: 8px;
+}
+.v-updated {
+  font-size: 10px;
+}
+.v-hero,
+.v-page-inicio .v-hero {
+  background: var(--navy);
+  color: white;
+  min-height: 340px;
+  border: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  grid-template-columns: 1fr 1fr;
+}
+.v-hero-copy,
+.v-page-inicio .v-hero-copy {
+  padding: 34px 0 64px 32px;
+}
+.v-hero h2,
+.v-page-inicio .v-hero h2 {
+  font-size: clamp(58px, 6vw, 84px);
+  letter-spacing: -1.5px;
+}
+.v-hero h2 em {
+  color: var(--accent);
+}
+.v-hero .v-eyebrow {
+  font-size: 7px;
+  letter-spacing: 1.2px;
+  color: #aebed6;
+  margin-bottom: 20px;
+}
+.v-hero .v-eyebrow::before {
+  background: var(--accent);
+}
+.v-hero-copy p {
+  font-size: 12px;
+  color: #b6c3d7;
+  margin: 18px 0;
+}
+.v-hero-baseline {
+  color: #8b9fbc;
+  border-color: #ffffff20;
+  font-size: 6px;
+}
+.v-section-art {
+  display: flex;
+}
+.v-section-art .once-tactics {
+  width: 100%;
+}
+.once-tactics-compact {
+  padding: 24px 20px 42px 0;
+}
+.once-tactics-compact .once-tactics-stage {
+  min-height: 240px;
+}
+.once-tactics-compact .once-map-tag {
+  padding: 9px 12px;
+}
+.once-tactics-compact .once-map-tag-a {
+  right: 5%;
+  top: 8%;
+}
+.once-tactics-compact .once-map-tag-b {
+  bottom: 7%;
+}
+.once-tactics-compact .once-tactics-bottom {
+  margin-top: 0;
+}
+.once-tactics-compact .once-tactics-bottom > span {
+  font-size: 6px;
+}
+.v-btn {
+  border-radius: 4px;
+  min-height: 44px;
+}
+.v-btn-primary {
+  color: var(--ink);
+}
+.v-btn-primary:hover {
+  background: #d5ff7c;
+}
+.v-btn-dark:hover {
+  background: #253f67;
+}
+.v-text-btn:hover {
+  color: var(--blue);
+}
+.v-score-strip {
+  margin-top: 24px;
+  grid-template-columns: 1fr;
+  border: 0;
+  background: transparent;
+}
+.v-score-label {
+  display: none;
+}
+.v-metrics {
+  gap: 14px;
+}
+.v-metric {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 20px;
+}
+.v-metric + .v-metric {
+  border-left: 1px solid var(--line);
+}
+.v-metric:hover {
+  transform: translateY(-3px);
+  background: #f0f4e9;
+  border-color: #acbd93;
+}
+.v-metric-top {
+  font-size: 11px;
+}
+.v-metric-icon {
+  background: #f0f3f8;
+  color: #5e769c;
+}
+.v-metric-number {
+  display: none;
+}
+.v-metric > strong {
+  font-size: 48px;
+  color: var(--ink);
+}
+.v-metric > small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.v-metric-warm {
+  background: #eff5e4;
+}
+.v-overview {
+  margin-top: 26px;
+  gap: 22px;
+}
+.v-panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.v-panel-head h2 {
+  font-size: 29px;
+}
+.v-panel-head p {
+  font-size: 11px;
+}
+.v-eyebrow {
+  font-size: 8px;
+  color: var(--muted);
+}
+.v-match-row {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+.v-match-teams > span {
+  font-size: 12px;
+}
+.v-attention {
+  border-radius: 4px;
+}
+.v-attention-icon {
+  background: #eef2f8;
+  color: #5a759e;
+}
+.v-attention:hover {
+  background: #f2f5eb;
+}
+.v-attention strong {
+  font-size: 12px;
+}
+.v-attention small {
+  font-size: 10px;
+}
+.v-quick-actions {
+  gap: 14px;
+  margin-top: 24px;
+}
+.v-quick-action {
+  border-radius: 6px;
+  background: #edf1f7;
+  border-color: var(--line);
+}
+.v-quick-action:hover {
+  background: #e4edda;
+}
+.v-footer {
+  grid-column: 2;
+  width: 100%;
+  padding: 24px 32px;
+}
+.v-field input,
+.v-field select,
+.v-field textarea {
+  border-radius: 4px;
+  background-color: #fafbfc;
+  font-size: 13px;
+  border-color: #d4dce7;
+}
+.v-field input:focus,
+.v-field select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #3263f318;
+}
+.v-dialog {
+  border-radius: 8px;
+  box-shadow: 0 30px 100px #07122855;
+}
+.v-toast {
+  border-radius: 5px;
+  box-shadow: 0 12px 32px #101d3620;
+}
+.v-login {
+  border-top: 0;
+}
+.v-login-scene {
+  background: var(--navy);
+  color: white;
+}
+.v-login-copy h1 em {
+  color: var(--accent);
+}
+.v-login-copy p {
+  color: #a9bad1;
+  max-width: 320px;
+}
+.v-login-copy .v-eyebrow {
+  color: #a9bad1;
+}
+.v-login-scene .v-section-art {
+  margin: 0 -20px 0 0;
+  min-height: 290px;
+  width: 100%;
+}
+.v-login-scene .once-tactics-compact {
+  padding-bottom: 12px;
+}
+.v-login-caption {
+  color: #9fb0c8;
+  border-color: #ffffff22;
+  font-size: 8px;
+}
+.v-login-form-area {
+  background: var(--paper);
+}
+.v-login-box {
+  max-width: 380px;
+}
+.v-login-pass {
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 9px;
+  margin-bottom: 38px;
+}
+.v-login-box h2 {
+  font-size: 54px;
+}
+.v-login-box > p {
+  font-size: 13px;
+}
+.v-login-box > .v-eyebrow {
+  font-size: 8px;
+}
+.v-login-box .v-field > span {
+  font-size: 12px;
+}
+.v-login-box .v-form .v-btn {
+  min-height: 50px;
+}
+.v-login-box > .v-login-foot {
+  font-size: 10px;
+}
+.once-password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.once-password-field input {
+  width: 100%;
+  padding-right: 70px;
+}
+.once-password-field button {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  color: var(--muted);
+  padding: 9px 0;
+  font-size: 11px;
+}
+.once-login-links {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  display: grid;
+  gap: 16px;
+}
+.once-login-links a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 12px;
+  text-decoration: none;
+}
+.once-login-links svg {
+  width: 15px;
+  margin-left: auto;
+}
+.v-source-workbench .v-source-preview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #edf1f6;
+  border-radius: 5px;
+}
+.v-source-workbench .v-source-preview > div,
+.v-source-workbench .v-source-preview > .v-btn {
+  grid-column: 1 / -1;
+}
+.v-source-preview label {
+  min-width: 0;
+}
+.v-source-preview select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  background: white;
+  padding: 8px;
+  color: var(--ink);
+}
+.once-match-options {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 14px;
+}
+.once-match-options summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.once-match-options summary span {
+  color: var(--muted);
+  font-size: 10px;
+  float: right;
+}
+.once-match-options > .v-form-grid {
+  margin-top: 18px;
+}
+@media (max-width: 1200px) {
+  .v-app {
+    grid-template-columns: 175px minmax(0, 1fr);
+  }
+  .v-content {
+    padding: 0 24px;
+  }
+  .v-hero-copy,
+  .v-page-inicio .v-hero-copy {
+    padding-left: 25px;
+  }
+  .v-overview {
+    grid-template-columns: 1fr;
+  }
+  .v-stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .v-metric {
+    padding: 16px;
+  }
+  .v-metric-icon {
+    display: none;
+  }
+  .v-quick-action em {
+    font-size: 10px;
+  }
+}
+@media (max-width: 900px) {
+  .v-app {
+    display: block;
+  }
+  .v-masthead-inner {
+    padding: 22px 24px;
+  }
+  .v-navigation {
+    border-right: 0;
+    padding: 0 24px;
+  }
+  .once-sidebar-label,
+  .v-nav-caption {
+    display: none;
+  }
+  .v-nav {
+    flex-direction: row;
+    position: static;
+    gap: 10px;
+    padding: 12px 0;
+  }
+  .v-nav button {
+    min-height: 42px;
+    padding: 10px 13px;
+  }
+  .v-nav button small {
+    display: none;
+  }
+  .v-hero,
+  .v-page-inicio .v-hero {
+    min-height: 325px;
+  }
+  .v-hero h2,
+  .v-page-inicio .v-hero h2 {
+    font-size: 74px;
+  }
+  .v-page-intro > div {
+    gap: 12px;
+  }
+  .v-section-kicker {
+    display: none;
+  }
+  .v-workspace-id {
+    display: none;
+  }
+  .once-admin-explore {
+    font-size: 10px;
+  }
+}
+.once-import {
+  padding: 28px;
+  margin: 24px 0;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+  background: #fff;
+}
+.once-import-heading,
+.once-import-controls,
+.once-import-summary,
+.once-import-actions {
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  align-items: center;
+}
+.once-import-heading h3 {
+  font-family: var(--display);
+  font-size: 36px;
+  margin: 6px 0;
+}
+.once-import-heading p,
+.once-import-help,
+.once-import-actions p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.once-import-license {
+  padding: 8px 12px;
+  background: var(--navy);
+  color: var(--accent);
+  white-space: nowrap;
+  font-size: 12px;
+}
+.once-import-controls {
+  margin: 22px 0 10px;
+  justify-content: flex-start;
+  align-items: end;
+}
+.once-import-controls label {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  max-width: 460px;
+  font-size: 12px;
+}
+.once-import select {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font: inherit;
+  color: var(--ink);
+}
+.once-import-summary {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding: 14px 0;
+  font-size: 13px;
+}
+.once-import-summary small {
+  color: var(--muted);
+}
+.once-import-list {
+  max-height: 530px;
+  overflow-y: auto;
+  border-block: 1px solid var(--line);
+}
+.once-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(100px, 0.6fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 17px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.once-import-row > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.once-import-row a {
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  overflow-wrap: anywhere;
+}
+.once-import-row small,
+.once-import-row div > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.once-import-state {
+  font-size: 11px;
+  font-weight: 650;
+}
+.once-import-state[data-state="review"] {
+  color: #925300;
+}
+.once-import-state[data-state="new"] {
+  color: #276128;
+}
+.once-import-error {
+  color: #a22e25 !important;
+  font-size: 13px;
+}
+.once-import-success {
+  padding: 14px;
+  background: #edf6df;
+  color: #244125;
+  font-size: 13px;
+}
+.once-import-actions {
+  margin-top: 18px;
+}
+.once-import-actions p {
+  max-width: 540px;
+}
+.once-import-actions button {
+  flex-shrink: 0;
+}
+@media (max-width: 800px) {
+  .once-import {
+    padding: 20px;
+  }
+  .once-import-heading,
+  .once-import-controls,
+  .once-import-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .once-import-license {
+    align-self: flex-start;
+  }
+  .once-import-controls label {
+    max-width: none;
+  }
+  .once-import-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .once-import-row label {
+    grid-column: 1 / -1;
+  }
+  .once-import-heading h3 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .v-masthead-inner {
+    padding: 19px 20px;
+    gap: 20px;
+  }
+  .v-top-actions {
+    gap: 12px;
+  }
+  .once-admin-explore,
+  .v-admin-tag {
+    display: none;
+  }
+  .v-content {
+    padding: 0 16px;
+  }
+  .v-navigation {
+    padding: 0 16px;
+  }
+  .v-nav {
+    gap: 4px;
+    justify-content: space-between;
+  }
+  .v-nav button {
+    font-size: 10px;
+    padding: 10px;
+    gap: 5px;
+  }
+  .v-nav button > svg {
+    width: 14px;
+  }
+  .v-page-intro {
+    padding: 23px 0;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .v-page-intro h1 {
+    font-size: 15px;
+  }
+  .v-updated {
+    font-size: 8px;
+  }
+  .v-hero,
+  .v-page-inicio .v-hero {
+    grid-template-columns: 1fr;
+  }
+  .v-hero-copy,
+  .v-page-inicio .v-hero-copy {
+    padding: 28px 24px 25px;
+  }
+  .v-hero h2,
+  .v-page-inicio .v-hero h2 {
+    font-size: 78px;
+  }
+  .v-section-art {
+    display: none;
+  }
+  .v-hero-baseline {
+    position: static;
+    padding: 12px 24px;
+  }
+  .v-hero-baseline span:nth-child(2) {
+    display: none;
+  }
+  .v-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .v-metric > strong {
+    font-size: 44px;
+  }
+  .v-metric > small {
+    font-size: 9px;
+  }
+  .v-stack {
+    display: flex;
+    flex-direction: column;
+  }
+  .v-quick-actions {
+    grid-template-columns: 1fr;
+  }
+  .v-panel {
+    padding: 18px;
+  }
+  .v-panel-head h2 {
+    font-size: 28px;
+  }
+  .v-footer {
+    padding: 24px 16px;
+  }
+  .v-login-form-area {
+    padding: 40px 25px;
+  }
+  .v-login-box > .v-brand {
+    display: flex;
+    margin-bottom: 30px;
+  }
+  .v-login-scene {
+    display: none;
+  }
+  .v-login {
+    display: block;
+  }
+  .v-login-box h2 {
+    font-size: 46px;
+  }
+}

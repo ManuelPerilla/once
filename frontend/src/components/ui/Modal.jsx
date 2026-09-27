@@ -7,7 +7,7 @@ export function Modal({
   onClose,
   children,
   busy = false,
-  eyebrow = "VÉRTICE / MESA DE EDICIÓN",
+  eyebrow = "ONCE / MESA DE EDICIÓN",
 }) {
   const ref = useRef(null);
 

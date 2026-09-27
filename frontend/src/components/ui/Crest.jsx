@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function Crest({
   src,
@@ -7,19 +7,17 @@ export function Crest({
   transitionName,
   className = "",
 }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [src]);
+  const [failedSource, setFailedSource] = useState(null);
 
   return (
     <span
       className={`v-crest ${small ? "v-crest-small" : ""} ${className}`.trim()}
       style={transitionName ? { viewTransitionName: transitionName } : undefined}
     >
-      {src && !failed ? (
-        <img src={src} alt="" onError={() => setFailed(true)} />
+      {src && src !== failedSource ? (
+        <img src={src} alt="" onError={() => setFailedSource(src)} />
       ) : (
-        <span aria-hidden="true">{name.slice(0, 2).toUpperCase() || "V"}</span>
+        <span aria-hidden="true">{name.slice(0, 2).toUpperCase() || "11"}</span>
       )}
     </span>
   );

@@ -1,4 +1,4 @@
-export function Pitch({ children, label = "V / MATCH SPACE", compact = false }) {
+export function Pitch({ children, label = "ONCE / VISIÓN DE JUEGO", compact = false }) {
   return (
     <div className={`p-pitch-card ${compact ? "p-pitch-card-compact" : ""}`}>
       <svg viewBox="0 0 800 500" role="img" aria-label="Representación de una cancha de fútbol">

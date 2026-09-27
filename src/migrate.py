@@ -8,7 +8,6 @@ from sqlalchemy import inspect
 
 from src.database import engine
 
-
 BASELINE_REVISION = "0001_legacy_baseline"
 
 

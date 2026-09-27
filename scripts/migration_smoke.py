@@ -31,6 +31,8 @@ def main() -> None:
         "alineacionpartido",
         "providermapping",
         "mediaasset",
+        "providersnapshot",
+        "catalogimportbatch",
     }
     missing = expected_tables - tables
     if missing:

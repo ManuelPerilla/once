@@ -1,17 +1,21 @@
 # Fuentes, proveedores y procedencia
 
-VÉRTICE debe poder cambiar de proveedor sin cambiar la identidad de sus entidades. Un equipo, partido o competición conserva siempre su ID local; los IDs externos viven en `ProviderMapping`.
+## Catálogos abiertos de ONCE
+
+La primera importación gratuita de identidades ya está disponible desde Wikidata. Descarga colecciones acotadas en lotes, conserva una copia de 24 horas, propone coincidencias y aplica la selección de forma atómica. La preparación escribe únicamente el lote de observaciones; las entidades se crean o vinculan después de revisar la vista previa. Consulta [el alcance y la arquitectura de ingesta](ingestion.md).
+
+ONCE debe poder cambiar de proveedor sin cambiar la identidad de sus entidades. Un equipo, partido o competición conserva siempre su ID local; los IDs externos viven en `ProviderMapping`.
 
 ## Regla principal
 
-Un proveedor aporta observaciones sobre el fútbol. No define el modelo de VÉRTICE.
+Un proveedor aporta observaciones sobre el fútbol. No define el modelo de ONCE.
 
 Por eso:
 
 - no se reutilizan IDs externos como claves primarias
 - un fixture solo se sincroniza automáticamente cuando sus equipos ya están mapeados
 - los equipos desconocidos quedan pendientes para revisión
-- una consulta de preview nunca escribe en la base
+- los previews de proveedores no escriben en el dominio; preparar un catálogo abierto sí conserva un lote revisable
 - cada sincronización es explícita
 - los recursos visuales externos deben conservar fuente y licencia en `MediaAsset`
 
@@ -62,7 +66,7 @@ Una vez que un partido tiene mapping de fixture, la sincronización explícita d
 
 Los jugadores desconocidos se crean con ID interno propio y reciben un `ProviderMapping` de tipo `player`. Las alineaciones también actualizan la relación jugador-equipo cuando es posible.
 
-Los registros importados llevan `source=api-football`. Al repetir un sync, VÉRTICE reemplaza únicamente las filas pertenecientes a esa fuente y conserva eventos, alineaciones o estadísticas creadas manualmente.
+Los registros importados llevan `source=api-football`. Al repetir un sync, ONCE reemplaza únicamente las filas pertenecientes a esa fuente y conserva eventos, alineaciones o estadísticas creadas manualmente.
 
 Los payloads de eventos, alineaciones y estadísticas quedan guardados en `ProviderSnapshot` como última observación recibida para ese partido.
 
@@ -70,10 +74,10 @@ Los payloads de eventos, alineaciones y estadísticas quedan guardados en `Provi
 
 Wikidata se usa como fuente de enriquecimiento y referencias, no como fuente de resultados en vivo.
 
-VÉRTICE consulta entidades conocidas mediante la interfaz `Special:EntityData/QID.json` e identifica sus peticiones con un User-Agent configurable:
+ONCE consulta entidades conocidas mediante la interfaz `Special:EntityData/QID.json` e identifica sus peticiones con un User-Agent configurable:
 
 ```env
-WIKIDATA_USER_AGENT=Vertice/0.1 (https://github.com/MizunDev/vertice)
+WIKIDATA_USER_AGENT=ONCE/0.2 (personal local football catalog)
 ```
 
 Cuando una entidad tiene imagen principal (`P18`), el backend puede resolver el archivo correspondiente en Wikimedia Commons y leer sus metadatos de licencia, autoría, crédito, dimensiones y MIME. El import crea o actualiza un `MediaAsset` y vincula el QID mediante `ProviderMapping`.
@@ -102,7 +106,7 @@ Tener una URL pública no implica permiso de redistribución. La licencia se ver
 
 ## Estrategia de caché
 
-Las frecuencias dependen del tipo de dato:
+La importación abierta ya conserva lotes durante 24 horas. Para futuras actualizaciones programadas, las frecuencias propuestas dependen del tipo de dato:
 
 - identidad de equipos/competiciones: caché larga
 - calendario futuro: actualización moderada

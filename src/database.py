@@ -1,6 +1,7 @@
 import os
+
 from sqlalchemy import URL
-from sqlmodel import create_engine, SQLModel
+from sqlmodel import SQLModel, create_engine
 
 # DATABASE_URL permite usar una base aislada en pruebas. En Docker usamos
 # componentes separados para admitir contraseñas con caracteres especiales.
@@ -18,6 +19,7 @@ if not URL_BASE_DATOS:
     )
 
 engine = create_engine(URL_BASE_DATOS)
+
 
 def crear_tablas_db():
     SQLModel.metadata.create_all(engine)

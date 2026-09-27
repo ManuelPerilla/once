@@ -1,8 +1,11 @@
 import datetime
+import uuid
 from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
+
+from src.datetime_type import UTCDateTime
 
 
 class EstadoPartido(str, Enum):
@@ -131,7 +134,9 @@ class EquipoBase(SQLModel):
 class Equipo(EquipoBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     confederacion: Confederacion | None = Relationship(back_populates="equipos")
-    competiciones: list[Competicion] = Relationship(back_populates="equipos", link_model=Participacion)
+    competiciones: list[Competicion] = Relationship(
+        back_populates="equipos", link_model=Participacion
+    )
     partidos_local: list["Partido"] = Relationship(
         back_populates="equipo_local_rel",
         sa_relationship_kwargs={"foreign_keys": "Partido.equipo_local_id"},
@@ -215,7 +220,7 @@ class PartidoBase(SQLModel):
     equipo_visitante_id: int | None = Field(default=None, foreign_key="equipo.id")
     fecha: datetime.datetime | None = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), nullable=True, index=True),
+        sa_column=Column(UTCDateTime(), nullable=True, index=True),
     )
     jornada: str | None = None
     marcador_local: int = Field(default=0, ge=0)
@@ -242,7 +247,9 @@ class Partido(PartidoBase, table=True):
         cascade_delete=True,
     )
     eventos: list["EventoPartido"] = Relationship(back_populates="partido", cascade_delete=True)
-    alineaciones: list["AlineacionPartido"] = Relationship(back_populates="partido", cascade_delete=True)
+    alineaciones: list["AlineacionPartido"] = Relationship(
+        back_populates="partido", cascade_delete=True
+    )
 
 
 class PartidoCreate(PartidoBase):
@@ -376,6 +383,18 @@ class ProviderSnapshot(ProviderSnapshotBase, table=True):
 
 class ProviderSnapshotRead(ProviderSnapshotBase):
     id: int
+
+
+class CatalogImportBatch(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    collection: str = Field(index=True)
+    fetched_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UTCDateTime(), nullable=False),
+    )
+    # Preserve the observations that the operator actually reviewed.
+    payload: dict = Field(sa_column=Column(JSON, nullable=False))
+    last_result: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
 
 class MediaAssetBase(SQLModel):

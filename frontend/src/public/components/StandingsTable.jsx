@@ -3,22 +3,25 @@ import { apiCollection } from "../../api";
 import { Crest } from "../../components/ui/Crest";
 
 export function StandingsTable({ competition }) {
-  const [rows, setRows] = useState([]);
-  const [failed, setFailed] = useState(false);
+  const [result, setResult] = useState({ key: "", rows: [] });
 
   const activeSeason =
     competition.temporadas?.find((season) => season.activa) ||
     competition.temporadas?.slice().sort((a, b) => b.id - a.id)[0];
+  const seasonId = activeSeason?.id;
+  const requestKey = `${competition.id}/${seasonId || ""}`;
+  const rows = result.key === requestKey ? result.rows : [];
 
   useEffect(() => {
-    setFailed(false);
-    const query = activeSeason ? `?season_id=${activeSeason.id}` : "";
+    let current = true;
+    const query = seasonId ? `?season_id=${seasonId}` : "";
     apiCollection(`/public/competiciones/${competition.id}/standings${query}`)
-      .then(setRows)
-      .catch(() => setFailed(true));
-  }, [competition.id, activeSeason?.id]);
+      .then(rows => { if (current) setResult({ key: requestKey, rows }); })
+      .catch(() => { if (current) setResult({ key: requestKey, rows: [] }); });
+    return () => { current = false; };
+  }, [competition.id, seasonId, requestKey]);
 
-  if (failed || !rows.length) return null;
+  if (!rows.length) return null;
 
   return (
     <section className="p-standings-section">

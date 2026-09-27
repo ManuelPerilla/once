@@ -14,6 +14,7 @@ export function HomeView({
   setMatchFilter,
   changeSection,
   openCreate,
+  onCatalogImported,
 }) {
   const metrics = [
     {
@@ -123,7 +124,8 @@ export function HomeView({
                   openCreate("partidos");
                 }}
               >
-                Cuando registres encuentros, podrás seguir sus estados desde este inicio.
+                Cuando registres encuentros, podrás seguir sus estados desde
+                este inicio.
               </EmptyState>
             )}
           </div>
@@ -197,7 +199,9 @@ export function HomeView({
                   </span>
                   <span>
                     <strong>Crea tu primera competición</strong>
-                    <small>El punto de partida de tus próximos encuentros.</small>
+                    <small>
+                      El punto de partida de tus próximos encuentros.
+                    </small>
                   </span>
                   <Icon name="arrow" />
                 </button>
@@ -216,7 +220,9 @@ export function HomeView({
                   </span>
                   <span>
                     <strong>Añade los primeros equipos</strong>
-                    <small>Construye el catálogo de clubes y selecciones.</small>
+                    <small>
+                      Construye el catálogo de clubes y selecciones.
+                    </small>
                   </span>
                   <Icon name="arrow" />
                 </button>
@@ -270,7 +276,7 @@ export function HomeView({
         </div>
       )}
 
-      <ProviderConsole />
+      <ProviderConsole onImported={onCatalogImported} />
 
       <div className="v-quick-actions">
         <button

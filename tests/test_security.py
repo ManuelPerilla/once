@@ -18,14 +18,18 @@ def test_login_cookie_and_logout(client):
     assert client.get("/partidos/").status_code == 401
 
 
-@pytest.mark.parametrize("username,password", [("desconocido", TEST_PASSWORD), (TEST_USERNAME, "incorrecta")])
+@pytest.mark.parametrize(
+    "username,password", [("desconocido", TEST_PASSWORD), (TEST_USERNAME, "incorrecta")]
+)
 def test_wrong_credentials_are_rejected(client, username, password):
     response = client.post("/login", json={"username": username, "password": password})
     assert response.status_code == 401
     assert "vertice_token" not in client.cookies
 
 
-@pytest.mark.parametrize("invalid", ["expired", "no_exp", "no_sub", "other_user", "wrong_key", "legacy_token"])
+@pytest.mark.parametrize(
+    "invalid", ["expired", "no_exp", "no_sub", "other_user", "wrong_key", "legacy_token"]
+)
 def test_invalid_tokens_are_rejected(client, invalid):
     settings = get_auth_settings()
     payload = {"sub": TEST_USERNAME, "exp": datetime.now(timezone.utc) + timedelta(hours=1)}
@@ -40,14 +44,19 @@ def test_invalid_tokens_are_rejected(client, invalid):
         payload["sub"] = "otro_usuario"
     elif invalid == "wrong_key":
         key = "otra-clave-que-no-pertenece-a-esta-api-12345"
-    token = "vertice_qa_token_2026" if invalid == "legacy_token" else jwt.encode(payload, key, algorithm="HS256")
+    token = (
+        "vertice_qa_token_2026"
+        if invalid == "legacy_token"
+        else jwt.encode(payload, key, algorithm="HS256")
+    )
     assert client.get("/partidos/", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
 
 def test_valid_bearer_token_is_supported(client):
     token = jwt.encode(
         {"sub": TEST_USERNAME, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
-        get_auth_settings().secret_key, algorithm="HS256",
+        get_auth_settings().secret_key,
+        algorithm="HS256",
     )
     assert client.get("/partidos/", headers={"Authorization": f"Bearer {token}"}).status_code == 200
 
@@ -67,9 +76,14 @@ def test_missing_auth_configuration_is_rejected(client, monkeypatch, missing):
         get_auth_settings()
 
 
-@pytest.mark.parametrize("name,value", [
-    ("SECRET_KEY", "clave-corta"), ("ADMIN_PASSWORD_HASH", "texto-plano"), ("COOKIE_SECURE", "maybe"),
-])
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("SECRET_KEY", "clave-corta"),
+        ("ADMIN_PASSWORD_HASH", "texto-plano"),
+        ("COOKIE_SECURE", "maybe"),
+    ],
+)
 def test_invalid_auth_configuration_is_rejected(client, monkeypatch, name, value):
     monkeypatch.setenv(name, value)
     get_auth_settings.cache_clear()

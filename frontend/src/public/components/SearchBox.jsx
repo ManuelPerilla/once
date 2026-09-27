@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/ui/Icon";
 
 function normalize(value = "") {
@@ -10,6 +10,10 @@ function normalize(value = "") {
 
 export function SearchBox({ teams, competitions, players, matches, navigate }) {
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef(null);
+  const resultsRef = useRef(null);
+  const resultsId = useId();
   const normalized = normalize(query.trim());
 
   const results = useMemo(() => {
@@ -52,16 +56,56 @@ export function SearchBox({ teams, competitions, players, matches, navigate }) {
   const open = (result) => {
     navigate(result.type, result.id);
     setQuery("");
+    setExpanded(false);
   };
 
   return (
-    <div className="p-search">
+    <div
+      className="p-search"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setExpanded(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setExpanded(false);
+          inputRef.current?.focus();
+        }
+        if (
+          (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+          expanded &&
+          results.length
+        ) {
+          event.preventDefault();
+          const buttons = [
+            ...(resultsRef.current?.querySelectorAll("button") || []),
+          ];
+          const index = buttons.indexOf(document.activeElement);
+          const next =
+            index < 0
+              ? event.key === "ArrowDown"
+                ? 0
+                : buttons.length - 1
+              : (index + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) %
+                buttons.length;
+          buttons[next]?.focus();
+        }
+      }}
+    >
       <Icon name="search" />
       <input
         type="search"
+        ref={inputRef}
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Buscar en VÉRTICE"
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setExpanded(true);
+        }}
+        onFocus={() => setExpanded(true)}
+        aria-controls={
+          expanded && normalized.length >= 2 ? resultsId : undefined
+        }
+        placeholder="Buscar en ONCE"
         aria-label="Buscar equipos, competiciones, jugadores o partidos"
       />
       {query && (
@@ -73,8 +117,14 @@ export function SearchBox({ teams, competitions, players, matches, navigate }) {
           <Icon name="close" />
         </button>
       )}
-      {normalized.length >= 2 && (
-        <div className="p-search-results" role="listbox">
+      {expanded && normalized.length >= 2 && (
+        <div
+          className="p-search-results"
+          role="region"
+          aria-label="Resultados de búsqueda"
+          id={resultsId}
+          ref={resultsRef}
+        >
           {results.length ? (
             results.map((result) => (
               <button

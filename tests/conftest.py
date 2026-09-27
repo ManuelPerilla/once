@@ -14,7 +14,6 @@ from sqlmodel import SQLModel, create_engine
 from src import database, main
 from src.security import get_auth_settings, hash_password
 
-
 TEST_USERNAME = "operador_test"
 TEST_PASSWORD = "solo-para-pruebas-vertice"
 TEST_PASSWORD_HASH = hash_password(TEST_PASSWORD)
@@ -35,6 +34,7 @@ def client(monkeypatch):
         options = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
     test_engine = create_engine(test_url, **options)
     if test_url.startswith("sqlite"):
+
         @event.listens_for(test_engine, "connect")
         def enable_foreign_keys(connection, _):
             connection.execute("PRAGMA foreign_keys=ON")
@@ -44,12 +44,11 @@ def client(monkeypatch):
     monkeypatch.setenv("ADMIN_PASSWORD_HASH", TEST_PASSWORD_HASH)
     monkeypatch.setenv("COOKIE_SECURE", "false")
     monkeypatch.setattr(database, "engine", test_engine)
-    monkeypatch.setattr(main, "engine", test_engine)
     get_auth_settings.cache_clear()
     # TEST_DATABASE_URL debe apuntar a una base desechable, como la del CI.
     SQLModel.metadata.drop_all(test_engine)
     try:
-        with TestClient(main.app) as test_client:
+        with TestClient(main.create_app()) as test_client:
             yield test_client
     finally:
         SQLModel.metadata.drop_all(test_engine)
@@ -70,21 +69,40 @@ def catalog(authenticated):
         assert response.status_code == 200, response.text
         return response.json()
 
-    conf = create("/confederaciones/", {"nombre": "Confederación de prueba", "logo": "https://example.com/logo.svg"})
-    comp = create("/competiciones/", {
-        "nombre": "Liga de prueba", "logo": "https://example.com/logo.svg",
-        "tipo": "liga_nacional", "pais": "Colombia", "confederacion_id": conf["id"],
-    })
+    conf = create(
+        "/confederaciones/",
+        {"nombre": "Confederación de prueba", "logo": "https://example.com/logo.svg"},
+    )
+    comp = create(
+        "/competiciones/",
+        {
+            "nombre": "Liga de prueba",
+            "logo": "https://example.com/logo.svg",
+            "tipo": "liga_nacional",
+            "pais": "Colombia",
+            "confederacion_id": conf["id"],
+        },
+    )
     teams = []
     for nombre, tipo, pais in [
-        ("Local", "club", "Colombia"), ("Visitante", "club", "Colombia"),
-        ("Sin matrícula", "club", "Colombia"), ("Selección", "seleccion", "Colombia"),
+        ("Local", "club", "Colombia"),
+        ("Visitante", "club", "Colombia"),
+        ("Sin matrícula", "club", "Colombia"),
+        ("Selección", "seleccion", "Colombia"),
         ("Extranjero", "club", "España"),
     ]:
-        teams.append(create("/equipos/", {
-            "nombre": nombre, "logo": "https://example.com/logo.svg", "tipo": tipo,
-            "pais": pais, "confederacion_id": conf["id"],
-        }))
+        teams.append(
+            create(
+                "/equipos/",
+                {
+                    "nombre": nombre,
+                    "logo": "https://example.com/logo.svg",
+                    "tipo": tipo,
+                    "pais": pais,
+                    "confederacion_id": conf["id"],
+                },
+            )
+        )
     for team in teams[:2]:
         response = authenticated.post(f"/equipos/{team['id']}/matricular/{comp['id']}")
         assert response.status_code == 200 and response.json()["ok"]
@@ -97,5 +115,7 @@ def match_payload(catalog):
         "competicion_id": catalog["comp"]["id"],
         "equipo_local_id": catalog["teams"][0]["id"],
         "equipo_visitante_id": catalog["teams"][1]["id"],
-        "marcador_local": 0, "marcador_visitante": 0, "estado": "programado",
+        "marcador_local": 0,
+        "marcador_visitante": 0,
+        "estado": "programado",
     }

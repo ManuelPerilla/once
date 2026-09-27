@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.env
+.env.*
+.venv
+.local
+.pnpm-store
+frontend
+docs
+__pycache__
+**/__pycache__
+*.db
+*.sql

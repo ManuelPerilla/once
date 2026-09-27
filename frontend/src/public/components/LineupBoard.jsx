@@ -40,7 +40,7 @@ export function LineupBoard({ lineups = [], players = [], match, navigate }) {
         </div>
         <span>{starters.length} titulares</span>
       </div>
-      <Pitch label="V / STARTING XI">
+      <Pitch label="ONCE / STARTING XI">
         <div className="p-lineup-layer">
           {home.map((item, index) => (
             <Marker

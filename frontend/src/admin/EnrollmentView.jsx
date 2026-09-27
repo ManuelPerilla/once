@@ -139,7 +139,8 @@ export function EnrollmentView({
               <div className="v-entity-name">
                 <strong>{team.nombre}</strong>
                 <span>
-                  {team.tipo === "seleccion" ? "Selección" : "Club"} · {team.pais}
+                  {team.tipo === "seleccion" ? "Selección" : "Club"} ·{" "}
+                  {team.pais}
                 </span>
                 <div className="v-entity-tags">
                   {team.competiciones?.length ? (
