@@ -2,11 +2,13 @@ import datetime
 import hmac
 
 import jwt
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
-from sqlmodel import Field
+from sqlmodel import Field, Session, select
 
-from src.api.dependencies import ALGORITHM
+from src.accounts.models import AdminAccount
+from src.accounts.permissions import permissions_for
+from src.api.dependencies import ALGORITHM, get_session
 from src.security import get_auth_settings, verify_password
 
 router = APIRouter()
@@ -18,15 +20,31 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-def login(credentials: LoginRequest, response: Response):
+def login(credentials: LoginRequest, response: Response, session: Session = Depends(get_session)):
     settings = get_auth_settings()
-    password_ok = verify_password(credentials.password, settings.admin_password_hash)
-    username_ok = hmac.compare_digest(
+    bootstrap = hmac.compare_digest(
         credentials.username.encode("utf-8"), settings.admin_username.encode("utf-8")
     )
-    if username_ok and password_ok:
+    account = (
+        None
+        if bootstrap
+        else session.exec(
+            select(AdminAccount).where(
+                AdminAccount.username == credentials.username.strip().casefold()
+            )
+        ).first()
+    )
+    expected = account.password_hash if account else settings.admin_password_hash
+    password_ok = verify_password(credentials.password, expected)
+    if password_ok and (bootstrap or (account and account.active)):
+        username = settings.admin_username if bootstrap else account.username
+        role = "admin" if bootstrap else account.role
         expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
-        payload = {"sub": credentials.username, "exp": expire}
+        payload = {
+            "sub": username,
+            "exp": expire,
+            "auth_version": account.token_version if account else 0,
+        }
         token = jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
         response.set_cookie(
             key="vertice_token",
@@ -37,7 +55,13 @@ def login(credentials: LoginRequest, response: Response):
             max_age=86400,
             path="/",
         )
-        return {"ok": True, "mensaje": "Sesión iniciada correctamente"}
+        return {
+            "ok": True,
+            "mensaje": "Sesión iniciada correctamente",
+            "username": username,
+            "role": role,
+            "permissions": permissions_for(role),
+        }
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas")
 
 

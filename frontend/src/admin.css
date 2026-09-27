@@ -92,7 +92,7 @@ figure {
 .v-brand small {
   display: block;
   font-family: var(--body);
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 2.2px;
   margin-top: 7px;
   font-weight: 550;
@@ -134,12 +134,12 @@ figure {
   gap: 5px;
 }
 .v-workspace-id span {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 2.5px;
 }
 .v-workspace-id small {
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1.3px;
   color: #c3cec2;
 }
@@ -153,7 +153,7 @@ figure {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 14px;
 }
 .v-admin-tag i {
   width: 5px;
@@ -174,7 +174,7 @@ figure {
   gap: 10px;
   color: var(--paper);
   background: transparent;
-  font-size: 11px;
+  font-size: 14px;
 }
 .v-session-button > svg {
   width: 16px;
@@ -186,7 +186,7 @@ figure {
   height: 32px;
   border-radius: 50%;
   border: 1px solid #abc2a866;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.5px;
   background: #ffffff07;
 }
@@ -212,11 +212,11 @@ figure {
   padding: 0 0 3px;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .v-nav button small {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 450;
   color: #728073;
   font-variant-numeric: tabular-nums;
@@ -253,7 +253,7 @@ figure {
 }
 .v-nav-caption {
   align-self: center;
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1px;
   line-height: 1.7;
   color: var(--muted);
@@ -285,7 +285,7 @@ figure {
   min-width: 0;
 }
 .v-section-kicker {
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1.4px;
   color: var(--muted);
   font-weight: 600;
@@ -293,7 +293,7 @@ figure {
   padding-right: 18px;
 }
 .v-page-intro h1 {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.1px;
 }
@@ -301,7 +301,7 @@ figure {
   display: none;
 }
 .v-updated {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -324,7 +324,7 @@ figure {
 }
 .v-eyebrow {
   display: inline-block;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 1.65px;
   line-height: 1.6;
@@ -354,14 +354,14 @@ figure {
 }
 .v-hero-copy p {
   color: #516253;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.75;
   max-width: 320px;
   margin: 20px 0;
 }
 .v-hero-copy .v-btn {
   min-height: 42px;
-  font-size: 11px;
+  font-size: 14px;
 }
 .v-page-inicio .v-hero {
   min-height: 412px;
@@ -385,7 +385,7 @@ figure {
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  font-size: 6.5px;
+  font-size: 12px;
   letter-spacing: 1.6px;
   color: #586751;
 }
@@ -437,7 +437,7 @@ figure {
   left: 25px;
   right: 20px;
   bottom: 45px;
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   font-weight: 600;
   color: #56654d;
@@ -484,7 +484,7 @@ figure {
   padding: 12px 18px;
   border: 1px solid transparent;
   border-radius: 2px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .v-btn > svg {
@@ -521,7 +521,7 @@ figure {
   justify-content: center;
   gap: 8px;
   padding: 8px 0;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 650;
   color: var(--ink);
   background: transparent;
@@ -575,18 +575,18 @@ figure {
   background: #fdf1e6;
 }
 .v-confirm-entity strong {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 .v-confirm-body > p {
   margin: 18px 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .v-confirm-body > .v-confirm-warning {
   color: #815c48;
-  font-size: 10px;
+  font-size: 14px;
 }
 .v-danger:hover {
   background: #fbeae4;
@@ -610,7 +610,7 @@ figure {
   background: #f0f2e9;
 }
 .v-score-label .v-eyebrow {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1.4px;
   color: var(--muted);
 }
@@ -648,11 +648,11 @@ figure {
   display: flex;
   gap: 7px;
   align-items: center;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 .v-metric-number {
-  font-size: 8px;
+  font-size: 12px;
   color: #808d7c;
   font-weight: 450;
 }
@@ -670,7 +670,7 @@ figure {
   font-variant-numeric: tabular-nums;
 }
 .v-metric small {
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
   display: block;
@@ -698,7 +698,7 @@ figure {
   margin-bottom: 18px;
 }
 .v-panel-head .v-eyebrow {
-  font-size: 7px;
+  font-size: 12px;
   color: var(--muted);
   letter-spacing: 1.6px;
   margin-bottom: 8px;
@@ -713,7 +713,7 @@ figure {
 .v-panel-head p {
   margin-top: 8px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.6;
 }
 .v-panel-head > svg {
@@ -756,12 +756,12 @@ figure {
 }
 .v-attention strong {
   display: block;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
 }
 .v-attention small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--muted);
   margin-top: 5px;
@@ -789,7 +789,7 @@ figure {
   align-items: center;
   border-top: 1px solid var(--line);
   padding: 15px 0 2px;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.6;
 }
 .v-pending-clear svg {
@@ -811,19 +811,19 @@ figure {
   min-width: 0;
 }
 .v-roster-row strong {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   display: block;
   overflow-wrap: anywhere;
 }
 .v-roster-row small {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
   display: block;
 }
 .v-roster-row > span:last-child {
-  font-size: 9px;
+  font-size: 12px;
   color: #53654e;
   background: #f0f3e8;
   padding: 5px 7px;
@@ -849,7 +849,7 @@ figure {
   padding-bottom: 11px;
 }
 .v-match-meta > span:first-child {
-  font-size: 8px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.7px;
   color: #617059;
@@ -861,7 +861,7 @@ figure {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 8px;
+  font-size: 12px;
   white-space: nowrap;
   color: #5d7152;
 }
@@ -888,7 +888,7 @@ figure {
   display: flex;
   gap: 10px;
   align-items: center;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 550;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -913,7 +913,7 @@ figure {
   border-top: 1px solid var(--line);
   margin-top: 8px;
   padding-top: 8px;
-  font-size: 8px;
+  font-size: 12px;
   color: var(--muted);
 }
 .v-crest {
@@ -977,14 +977,14 @@ figure {
   letter-spacing: -0.4px;
 }
 .v-empty p {
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.8;
   color: var(--muted);
   margin: 10px auto 18px;
   max-width: 300px;
 }
 .v-empty .v-btn {
-  font-size: 10px;
+  font-size: 14px;
 }
 .v-match-board .v-empty {
   min-height: 285px;
@@ -1038,7 +1038,7 @@ figure {
   min-width: 0;
 }
 .v-quick-action small {
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 1.35px;
   color: var(--muted);
 }
@@ -1048,7 +1048,7 @@ figure {
   font-weight: 600;
 }
 .v-quick-action em {
-  font-size: 9px;
+  font-size: 12px;
   font-style: normal;
   color: var(--muted);
   line-height: 1.6;
@@ -1103,7 +1103,7 @@ figure {
 .v-tabs small {
   font-family: var(--body);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 12px;
   padding: 3px 6px;
   background: #eef1e7;
   color: #57704c;
@@ -1129,7 +1129,7 @@ figure {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -1146,7 +1146,7 @@ figure {
   width: 100%;
   outline: none;
   border-radius: 2px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 450;
   transition:
     border-color 0.15s,
@@ -1157,7 +1157,7 @@ figure {
 }
 .v-field input::placeholder {
   color: #7a8377;
-  font-size: 11px;
+  font-size: 14px;
 }
 .v-field input:focus,
 .v-field select:focus {
@@ -1171,17 +1171,17 @@ figure {
   cursor: not-allowed;
 }
 .v-field > small {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
   color: var(--muted);
 }
 .v-filter-bar .v-field {
-  font-size: 9px;
+  font-size: 12px;
 }
 .v-filter-bar .v-field input,
 .v-filter-bar .v-field select {
-  font-size: 11px;
+  font-size: 14px;
   min-height: 40px;
 }
 .v-search input {
@@ -1200,7 +1200,7 @@ figure {
   border-bottom: 1px solid var(--line);
 }
 .v-catalog-toolbar p {
-  font-size: 10px;
+  font-size: 14px;
   color: var(--muted);
 }
 .v-segments {
@@ -1212,7 +1212,7 @@ figure {
 .v-segments button {
   background: transparent;
   padding: 8px 12px;
-  font-size: 10px;
+  font-size: 14px;
   color: #66705d;
   border: 1px solid transparent;
   border-radius: 2px;
@@ -1253,14 +1253,14 @@ figure {
   flex: 1;
 }
 .v-entity-name > strong {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
   display: block;
 }
 .v-entity-name > span {
   display: block;
-  font-size: 10px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.5;
   margin-top: 5px;
@@ -1274,7 +1274,7 @@ figure {
 }
 .v-entity-tags span {
   display: inline-block;
-  font-size: 8px;
+  font-size: 12px;
   color: #587247;
   padding: 4px 7px;
   background: #eef2e3;
@@ -1330,7 +1330,7 @@ figure {
 .v-notice,
 .v-info-note {
   padding: 13px 14px;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
   background: #f1f4e7;
   border-left: 2px solid #aebf99;
@@ -1351,7 +1351,7 @@ figure {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 10px;
+  font-size: 14px;
   color: var(--muted);
   cursor: pointer;
   min-height: 34px;
@@ -1421,12 +1421,12 @@ figure {
   background: var(--ink);
 }
 .v-footer > span {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: var(--muted);
 }
 .v-footer > small {
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--muted);
 }
@@ -1466,7 +1466,7 @@ figure {
 }
 .v-dialog-head p {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.6;
   max-width: 340px;
 }
@@ -1485,12 +1485,12 @@ figure {
   margin-top: 4px;
 }
 .v-form-footer .v-btn {
-  font-size: 11px;
+  font-size: 14px;
 }
 .v-associate {
   border-top: 1px solid var(--line);
   padding: 20px 30px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .v-associate summary {
   cursor: pointer;
@@ -1498,7 +1498,7 @@ figure {
 }
 .v-associate p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
   margin: 12px 0;
 }
@@ -1511,7 +1511,7 @@ figure {
   justify-content: space-between;
   align-items: center;
   gap: 15px;
-  font-size: 10px;
+  font-size: 14px;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
@@ -1530,7 +1530,7 @@ figure {
   box-shadow: 0 10px 35px #173a2e20;
   max-width: min(600px, calc(100vw - 32px));
   width: max-content;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   border-radius: 2px;
 }
@@ -1556,7 +1556,7 @@ figure {
   gap: 24px;
 }
 .v-loading p {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
 }
 .v-loading-bar {
@@ -1602,7 +1602,7 @@ figure {
   margin-top: 52px;
 }
 .v-login-copy .v-eyebrow {
-  font-size: 8px;
+  font-size: 12px;
 }
 .v-login-copy h1 {
   font-family: var(--display);
@@ -1619,7 +1619,7 @@ figure {
 }
 .v-login-copy p {
   max-width: 260px;
-  font-size: 12px;
+  font-size: 14px;
   color: #61705c;
   line-height: 1.7;
 }
@@ -1638,7 +1638,7 @@ figure {
 }
 .v-login-caption {
   margin-top: auto;
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 2px;
   padding-top: 20px;
   border-top: 1px solid #c4ccbb;
@@ -1666,7 +1666,7 @@ figure {
   border-bottom: 1px dashed #cdd4c1;
   padding: 16px 0;
   margin-bottom: 58px;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: #5c7350;
 }
@@ -1680,7 +1680,7 @@ figure {
   height: 18px;
 }
 .v-login-box > .v-eyebrow {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1.45px;
   color: var(--muted);
 }
@@ -1693,7 +1693,7 @@ figure {
   margin: 16px 0;
 }
 .v-login-box > p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.8;
   margin-bottom: 30px;
@@ -1707,12 +1707,12 @@ figure {
   justify-content: space-between;
 }
 .v-login-box > .v-login-foot {
-  font-size: 9px;
+  font-size: 12px;
   margin-top: 25px;
 }
 .v-login-error {
   color: #9c3f2b;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1743,7 +1743,7 @@ figure {
     padding-left: 26px;
   }
   .v-hero .v-eyebrow {
-    font-size: 6px;
+    font-size: 12px;
     letter-spacing: 1.2px;
   }
   .v-hero-copy p {
@@ -1780,7 +1780,7 @@ figure {
     grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr);
   }
   .v-match-teams > span {
-    font-size: 10px;
+    font-size: 14px;
     gap: 7px;
   }
   .v-match-teams .v-crest {
@@ -1827,14 +1827,14 @@ figure {
     gap: 10px;
   }
   .v-section-kicker {
-    font-size: 7px;
+    font-size: 12px;
     padding-right: 10px;
   }
   .v-page-intro h1 {
-    font-size: 12px;
+    font-size: 14px;
   }
   .v-updated {
-    font-size: 8px;
+    font-size: 12px;
   }
   .v-hero {
     grid-template-columns: 53% 47%;
@@ -1854,7 +1854,7 @@ figure {
     padding: 30px 0 56px 24px;
   }
   .v-hero-copy p {
-    font-size: 11px;
+    font-size: 14px;
     max-width: 230px;
   }
   .v-hero .v-eyebrow {
@@ -1877,7 +1877,7 @@ figure {
   }
   .v-section-art figcaption {
     left: 14px;
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 0.8px;
   }
   .v-score-strip {
@@ -1900,10 +1900,10 @@ figure {
     font-size: 43px;
   }
   .v-metric-top {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-metric small {
-    font-size: 7px;
+    font-size: 12px;
   }
   .v-overview {
     grid-template-columns: minmax(0, 1fr);
@@ -1917,7 +1917,7 @@ figure {
     grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
   }
   .v-match-teams > span {
-    font-size: 11px;
+    font-size: 14px;
   }
   .v-quick-action strong {
     font-size: 23px;
@@ -1926,11 +1926,11 @@ figure {
     padding: 18px;
   }
   .v-quick-action small {
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 0.7px;
   }
   .v-quick-action em {
-    font-size: 8px;
+    font-size: 12px;
   }
   .v-work-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1939,7 +1939,7 @@ figure {
     display: none;
   }
   .v-entity-actions .v-text-btn {
-    font-size: 9px;
+    font-size: 12px;
     margin-right: 5px;
   }
   .v-catalog-row {
@@ -1990,7 +1990,7 @@ figure {
     font-size: 28px;
   }
   .v-brand small {
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 1.6px;
   }
   .v-brand-mark {
@@ -2016,7 +2016,7 @@ figure {
   .v-avatar {
     width: 29px;
     height: 29px;
-    font-size: 8px;
+    font-size: 12px;
   }
   .v-top-actions .v-icon-btn {
     width: 32px;
@@ -2033,10 +2033,10 @@ figure {
   .v-nav button {
     gap: 5px;
     min-height: 62px;
-    font-size: 11px;
+    font-size: 14px;
   }
   .v-nav button small {
-    font-size: 7px;
+    font-size: 12px;
   }
   .v-nav button > svg {
     display: none;
@@ -2054,13 +2054,13 @@ figure {
     border: 0;
     padding: 0;
     margin-bottom: 6px;
-    font-size: 6px;
+    font-size: 12px;
   }
   .v-page-intro h1 {
-    font-size: 11px;
+    font-size: 14px;
   }
   .v-page-intro .v-updated {
-    font-size: 7px;
+    font-size: 12px;
   }
   .v-hero,
   .v-page-inicio .v-hero {
@@ -2077,7 +2077,7 @@ figure {
     padding-bottom: 0;
   }
   .v-hero .v-eyebrow {
-    font-size: 6px;
+    font-size: 12px;
     letter-spacing: 1px;
     margin-bottom: 23px;
     max-width: none;
@@ -2091,14 +2091,14 @@ figure {
     letter-spacing: -2.5px;
   }
   .v-hero-copy p {
-    font-size: 11px;
+    font-size: 14px;
     max-width: 275px;
     margin: 20px 0;
   }
   .v-hero-copy .v-btn {
     min-height: 40px;
     padding: 11px 15px;
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-section-art {
     height: 200px;
@@ -2115,7 +2115,7 @@ figure {
   .v-art-index {
     top: 15px;
     right: 15px;
-    font-size: 14px;
+    font-size: 16px;
   }
   .v-section-art figcaption {
     bottom: 8px;
@@ -2126,7 +2126,7 @@ figure {
     right: 15px;
   }
   .v-hero-baseline {
-    font-size: 5.5px;
+    font-size: 12px;
     padding: 10px 14px;
     letter-spacing: 1px;
   }
@@ -2150,10 +2150,10 @@ figure {
     font-size: 46px;
   }
   .v-metric-top {
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-metric small {
-    font-size: 8px;
+    font-size: 12px;
   }
   .v-metric-number {
     display: inline;
@@ -2176,14 +2176,14 @@ figure {
     font-size: 28px;
   }
   .v-panel-head .v-eyebrow {
-    font-size: 6px;
+    font-size: 12px;
     letter-spacing: 1.3px;
   }
   .v-panel-head p {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-panel-head > .v-text-btn {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-match-row {
     padding: 12px;
@@ -2192,7 +2192,7 @@ figure {
     gap: 8px;
   }
   .v-match-meta > span:first-child {
-    font-size: 7px;
+    font-size: 12px;
     letter-spacing: 0.4px;
   }
   .v-match-teams {
@@ -2205,7 +2205,7 @@ figure {
     text-align: center;
     justify-content: flex-start;
     gap: 7px;
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-match-teams > span:last-child {
     flex-direction: column-reverse;
@@ -2239,11 +2239,11 @@ figure {
     display: block;
   }
   .v-quick-action small {
-    font-size: 6px;
+    font-size: 12px;
     letter-spacing: 1px;
   }
   .v-quick-action em {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-quick-action strong {
     font-size: 25px;
@@ -2255,13 +2255,13 @@ figure {
     margin-top: 32px;
   }
   .v-footer > span {
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 1.2px;
   }
   .v-footer > small {
     width: 100%;
     text-align: right;
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 1px;
   }
   .v-tabs {
@@ -2275,7 +2275,7 @@ figure {
     white-space: nowrap;
   }
   .v-tabs small {
-    font-size: 8px;
+    font-size: 12px;
     padding: 2px 4px;
     min-width: 17px;
   }
@@ -2292,14 +2292,14 @@ figure {
     gap: 10px;
   }
   .v-catalog-toolbar p {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-catalog-toolbar .v-segments {
     order: 3;
     width: 100%;
   }
   .v-catalog-toolbar .v-text-btn {
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-catalog-row {
     padding: 18px 16px;
@@ -2311,10 +2311,10 @@ figure {
     flex-basis: calc(100% - 62px);
   }
   .v-entity-name > strong {
-    font-size: 13px;
+    font-size: 16px;
   }
   .v-entity-name > span {
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-entity-actions .v-icon-btn {
     width: 44px;
@@ -2329,7 +2329,7 @@ figure {
     min-height: 44px;
   }
   .v-entity-tags span {
-    font-size: 7px;
+    font-size: 12px;
   }
   .v-entity-actions {
     width: 100%;
@@ -2361,7 +2361,7 @@ figure {
   }
   .v-segments button {
     padding: 8px 10px;
-    font-size: 9px;
+    font-size: 12px;
   }
   .v-dialog {
     width: calc(100vw - 24px);
@@ -2375,7 +2375,7 @@ figure {
     font-size: 33px;
   }
   .v-dialog-head p {
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-dialog > .v-form {
     padding: 22px 20px 0;
@@ -2401,7 +2401,7 @@ figure {
   }
   .v-toast {
     padding: 14px 17px;
-    font-size: 11px;
+    font-size: 14px;
   }
   .v-login {
     grid-template-columns: minmax(0, 1fr);
@@ -2418,7 +2418,7 @@ figure {
     width: 100%;
   }
   .v-login-copy .v-eyebrow {
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 0.8px;
     white-space: nowrap;
   }
@@ -2440,7 +2440,7 @@ figure {
     margin: 0;
   }
   .v-login-caption {
-    font-size: 5px;
+    font-size: 12px;
     letter-spacing: 1.4px;
     margin-top: 24px;
     padding-top: 15px;
@@ -2451,7 +2451,7 @@ figure {
   .v-login-pass {
     margin-bottom: 27px;
     padding: 11px 0;
-    font-size: 7px;
+    font-size: 12px;
     letter-spacing: 1px;
   }
   .v-login-box h2 {
@@ -2459,15 +2459,15 @@ figure {
     margin: 12px 0;
   }
   .v-login-box > p {
-    font-size: 11px;
+    font-size: 14px;
     margin-bottom: 23px;
   }
   .v-login-box > .v-login-foot {
     margin-bottom: 0;
-    font-size: 8px;
+    font-size: 12px;
   }
   .v-login-box > .v-eyebrow {
-    font-size: 6px;
+    font-size: 12px;
   }
 }
 @media (max-width: 360px) {
@@ -2477,7 +2477,7 @@ figure {
     padding-right: 12px;
   }
   .v-nav button {
-    font-size: 10px;
+    font-size: 14px;
   }
   .v-tabs {
     gap: 13px;
@@ -2518,7 +2518,7 @@ figure {
 
 .v-source-head p {
   max-width: 560px;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
   color: var(--muted);
 }
@@ -2530,7 +2530,7 @@ figure {
   white-space: nowrap;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  font-size: 8px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -2567,7 +2567,7 @@ figure {
 
 .v-source-metrics small {
   display: block;
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 1.4px;
   color: var(--muted);
 }
@@ -2582,14 +2582,17 @@ figure {
 }
 
 .v-source-metrics span {
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
 }
 
 .v-source-preview {
   display: grid;
-  grid-template-columns: minmax(260px, 1.6fr) minmax(110px, .6fr) minmax(110px, .6fr) auto;
+  grid-template-columns: minmax(260px, 1.6fr) minmax(110px, 0.6fr) minmax(
+      110px,
+      0.6fr
+    ) auto;
   align-items: end;
   gap: 16px;
   padding: 22px 24px;
@@ -2602,12 +2605,12 @@ figure {
 }
 
 .v-source-preview > div > strong {
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .v-source-preview > div > small {
   max-width: 470px;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.55;
   color: var(--muted);
 }
@@ -2615,7 +2618,7 @@ figure {
 .v-source-preview label {
   display: grid;
   gap: 7px;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -2636,21 +2639,21 @@ figure {
 
 .v-source-preview .v-btn {
   min-height: 40px;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .v-source-note {
   margin: 0;
   padding: 13px 24px;
   border-top: 1px solid var(--line);
-  font-size: 9px;
+  font-size: 12px;
   color: #66745f;
   line-height: 1.6;
 }
 
 .v-source-note code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .v-source-note-error {
@@ -2664,7 +2667,7 @@ figure {
 
 .v-source-results > span {
   display: block;
-  font-size: 8px;
+  font-size: 12px;
   color: var(--muted);
   margin-bottom: 10px;
 }
@@ -2679,23 +2682,23 @@ figure {
 }
 
 .v-source-results article small {
-  font-size: 7px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .v-source-results article strong {
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .v-source-results article strong b {
   font-family: var(--display);
-  font-size: 15px;
+  font-size: 16px;
   margin: 0 7px;
 }
 
 .v-source-results article span {
   text-align: right;
-  font-size: 8px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -2755,8 +2758,6 @@ figure {
     text-align: left;
   }
 }
-
-
 
 .v-source-workbench {
   display: grid;

@@ -35,6 +35,7 @@ Abre [el administrador](http://localhost/) y [la experiencia pública](http://lo
 | --- | --- | --- |
 | frontend | NGINX, React y proxy `/api` | `127.0.0.1:80`, configurable |
 | api | FastAPI y migraciones al arrancar | `127.0.0.1:8000` |
+| worker | Cola durable, cuotas e importación en segundo plano | Sin puertos públicos |
 | db | PostgreSQL 15 y datos persistentes | Solo la red de Compose |
 | pgadmin | Administración opcional | `127.0.0.1:5050` |
 
@@ -42,15 +43,23 @@ Abre [el administrador](http://localhost/) y [la experiencia pública](http://lo
 
 Para pgAdmin, configura su correo y contraseña y ejecuta `docker compose --profile admin up -d pgadmin`. Conecta con servidor `db`, puerto `5432`, usuario `postgres` y base `vertice_db`.
 
+### Acceso desde otros equipos de la red local
+
+En el `.env` de esta instalación, establece `FRONTEND_BIND=0.0.0.0` y conserva `FRONTEND_PORT=80`. Aplica el cambio con `docker compose up -d --no-deps --wait frontend`. Desde otro equipo conectado a la misma red, abre `http://IP_DEL_EQUIPO/explore` para explorar o `http://IP_DEL_EQUIPO/` para iniciar sesión. Usa la dirección IPv4 del adaptador activo, no `localhost`, que en cada dispositivo identifica al propio dispositivo. Si el puerto elegido es distinto de 80, añádelo a la dirección.
+
+Docker y el equipo anfitrión deben permanecer encendidos. El firewall de Windows debe permitir el puerto TCP elegido desde la subred local; una regla existente de Docker puede cubrirlo. El frontend conserva `/api` bajo el mismo origen y `COOKIE_SECURE=false` para este acceso por HTTP. No hace falta publicar el puerto de PostgreSQL ni el de la API. Para volver a acceso exclusivo del anfitrión, usa `FRONTEND_BIND=127.0.0.1` y aplica de nuevo el mismo comando. El valor por defecto del proyecto sigue siendo `127.0.0.1`.
+
 ## Actualizar, detener y volver atrás
 
-Antes de una actualización relevante, genera una copia con `python -m scripts.backup` y registra la revisión del código (`git rev-parse HEAD`; los cambios sin commit deben conservarse por separado).
+Antes de una actualización relevante, pausa la automatización, evita ediciones durante la copia y ejecuta `python -m scripts.backup --include-media`. Registra la revisión del código (`git rev-parse HEAD`; los cambios sin commit deben conservarse por separado). Al actualizar una versión anterior sin volumen de medios, usa la copia sin `--include-media` una última vez.
 
 ```sh
 docker compose up --build -d --wait
 ```
 
 Las migraciones se aplican antes de iniciar la API. El seed inserta el conjunto inicial solo cuando no encuentra confederaciones; no rellena automáticamente catálogos existentes. Para detener el conjunto, `docker compose down` conserva el volumen. **No añadas `--volumes` a la instalación de trabajo.**
+
+El trabajador arranca después de la API sana y conserva el estado de pausa guardado. En una base nueva empieza pausado: configura las fuentes desde **Datos → Automatización**. El volumen `media_data` guarda escudos locales y se comparte entre API y trabajador. Consulta el [manual de operación](../automation.md) para cadencia, cuotas, correcciones y roles.
 
 El nombre Compose está fijado en `vertice` para mantener el volumen `vertice_postgres_data` aunque cambies de carpeta. `-p` y `COMPOSE_PROJECT_NAME` pueden sobrescribirlo: no los cambies por accidente. Si se necesita otra instalación independiente en el mismo motor, usa un proyecto distinto y puertos distintos deliberadamente.
 
@@ -71,6 +80,7 @@ Si una actualización falla, conserva los logs y la copia. Volver al código ant
 ```bash
 docker compose ps
 docker compose logs api --tail=80
+docker compose logs worker --tail=80
 ```
 
 - **Puerto 80 ocupado:** cambia `FRONTEND_PORT=8080` en `.env`, vuelve a ejecutar Compose y abre [localhost:8080](http://localhost:8080).
@@ -95,6 +105,6 @@ Es una recuperación para ese fallo, no una corrección del propio Docker: puede
 
 ## Publicación en un servidor
 
-El Compose incluido está diseñado para uso local y escucha en loopback. Para acceso remoto hace falta un dominio y un proxy HTTPS del servidor que apunte al frontend local; conserva PostgreSQL dentro de la red privada. Configura `COOKIE_SECURE=true` y vuelve a comprobar inicio/cierre de sesión a través de HTTPS. El proxy exterior debe permitir las rutas profundas y `/api`.
+El Compose incluido escucha en loopback por defecto; el acceso LAN se configura en la sección anterior. Para publicarlo en Internet, usa un dominio y un proxy HTTPS del servidor que apunte al frontend local, con `FRONTEND_BIND=127.0.0.1`; conserva PostgreSQL dentro de la red privada. Configura `COOKIE_SECURE=true` y vuelve a comprobar inicio/cierre de sesión a través de HTTPS. El proxy exterior debe permitir las rutas profundas y `/api`.
 
-No hay despliegue público automático, gestión multiusuario ni alta disponibilidad configurada. Antes de una publicación externa se debe concretar el servidor, TLS, acceso administrativo, copias fuera del host y monitorización. El [manual de GitHub](github.md) describe cómo preparar una entrega revisable sin publicar secretos.
+Hay cuentas con roles, pero no despliegue público automático ni alta disponibilidad configurada. Antes de una publicación externa se debe concretar el servidor, TLS, acceso administrativo, copias fuera del host y monitorización. El proxy exterior debe permitir SSE sin buffering en `/api/public/changes`. El [manual de GitHub](github.md) describe cómo preparar una entrega revisable sin publicar secretos.

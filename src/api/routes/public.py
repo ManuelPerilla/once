@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, exists, or_
 from sqlmodel import Session, select
 
 from src.api.dependencies import get_session
@@ -7,6 +8,8 @@ from src.football.standings import calculate_standings
 from src.models import (
     Competicion,
     CompeticionPublicRead,
+    Confederacion,
+    Equipo,
     EquipoConCompeticionesRead,
     Estadio,
     EstadioRead,
@@ -36,26 +39,34 @@ def public_competiciones(session: Session = Depends(get_session)):
 def public_standings(
     competition_id: int,
     season_id: int | None = None,
+    phase_id: int | None = None,
+    group_id: int | None = None,
     session: Session = Depends(get_session),
 ):
+    from src.football.projections import StandingsScopeError, read_standings
+
     competition = session.get(Competicion, competition_id)
     if not competition:
         raise HTTPException(status_code=404, detail="Competición no encontrada")
-
     if season_id is not None:
         season = session.get(Temporada, season_id)
         if not season or season.competicion_id != competition_id:
             raise HTTPException(
                 status_code=404, detail="Temporada no encontrada para esta competición"
             )
-
+        try:
+            result = read_standings(session, season_id, phase_id, group_id)
+        except StandingsScopeError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        # Legacy clients only receive reviewed, scoped ONCE calculations.
+        return result["calculated"].rows if result["calculated"] is not None else []
+    if phase_id is not None or group_id is not None:
+        raise HTTPException(422, "Selecciona una temporada antes de elegir fase o grupo")
     statement = select(Partido).where(
         Partido.competicion_id == competition_id,
+        Partido.temporada_id.is_(None),
         Partido.estado == EstadoPartido.FINALIZADO,
     )
-    if season_id is not None:
-        statement = statement.where(Partido.temporada_id == season_id)
-
     return calculate_standings(competition.equipos, session.exec(statement).all())
 
 
@@ -105,3 +116,32 @@ def public_media(entity_type: str, entity_id: int, session: Session = Depends(ge
         MediaAsset.entity_id == entity_id,
     )
     return session.exec(statement).all()
+
+
+@router.get("/public/crests/", response_model=list[MediaAssetRead])
+def public_crests(session: Session = Depends(get_session)):
+    """One local query for attribution, restricted to badges currently in use."""
+    selected = or_(
+        *(
+            and_(
+                MediaAsset.entity_type == kind,
+                exists().where(
+                    model.id == MediaAsset.entity_id,
+                    or_(model.logo == MediaAsset.original_url, model.logo == MediaAsset.local_url),
+                ),
+            )
+            for kind, model in (
+                ("team", Equipo),
+                ("competition", Competicion),
+                ("confederation", Confederacion),
+            )
+        )
+    )
+    return session.exec(
+        select(MediaAsset).where(
+            MediaAsset.tipo == "escudo",
+            MediaAsset.license.is_not(None),
+            MediaAsset.verified_at.is_not(None),
+            selected,
+        )
+    ).all()

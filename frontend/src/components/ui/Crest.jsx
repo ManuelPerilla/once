@@ -12,10 +12,20 @@ export function Crest({
   return (
     <span
       className={`v-crest ${small ? "v-crest-small" : ""} ${className}`.trim()}
-      style={transitionName ? { viewTransitionName: transitionName } : undefined}
+      data-fallback={!src || src === failedSource || undefined}
+      style={
+        transitionName ? { viewTransitionName: transitionName } : undefined
+      }
     >
       {src && src !== failedSource ? (
-        <img src={src} alt="" onError={() => setFailedSource(src)} />
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedSource(src)}
+        />
       ) : (
         <span aria-hidden="true">{name.slice(0, 2).toUpperCase() || "11"}</span>
       )}

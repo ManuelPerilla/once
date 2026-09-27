@@ -20,11 +20,13 @@ python -m scripts.backup --directory RUTA_DE_RESPALDOS
 
 Conserva fuera del equipo al menos la última copia verificada y una anterior. El `.dump` y su `.json` deben viajar juntos; no edites el archivo JSON para hacer pasar una copia modificada.
 
+Si ya hay escudos descargados, usa `python -m scripts.backup --include-media` con la API disponible. Además se crea un archivo `.media.tar`, cuyo hash queda en el mismo manifiesto. La caché local conserva las imágenes; su procedencia, licencia y atribución están en la base.
+
 ## 2. Qué transferir
 
 - Código, Dockerfiles, Compose, migraciones, dependencias fijadas, documentación y recursos de `frontend/public`.
 - `.git` si quieres conservar el historial local, o un clon del repositorio cuando vuelva a estar disponible.
-- El `.dump` y su `.json`, por un canal privado.
+- El `.dump`, su `.json` y el `.media.tar` cuando exista, por un canal privado.
 - `.env` por separado si quieres mantener las credenciales actuales; también puedes generar nuevas credenciales en el destino.
 
 No hace falta transferir `.venv`, `frontend/node_modules`, `frontend/dist`, cachés ni contenedores. Los entornos virtuales pueden contener rutas absolutas: recréalos en el destino si vas a desarrollar fuera de Docker. `.local` contiene copias y resultados de pruebas: no se sube a GitHub. Los SQL de `data/legacy` no sustituyen la copia recién creada.
@@ -39,11 +41,16 @@ Inicia únicamente PostgreSQL:
 
 ```sh
 docker compose up -d db --wait
-python -m scripts.restore_backup RUTA_A_LA_COPIA.dump
+docker compose build api
+python -m scripts.restore_backup RUTA_A_LA_COPIA.dump --include-media
 docker compose up --build -d --wait
 ```
 
-**No inicies la API antes de restaurar:** crearía tablas y datos iniciales. El restaurador exige el manifiesto, verifica el hash y rechaza una base que ya contenga tablas. No borra tablas ni volúmenes. La restauración se ejecuta en una sola transacción y los propietarios se adaptan al usuario local.
+**Mantén la API y el trabajador detenidos antes de restaurar.** La API crearía tablas y datos iniciales; el trabajador podría iniciar consultas cuando aparezca el esquema restaurado. El restaurador comprueba que ambos estén detenidos, exige el manifiesto, verifica el hash y rechaza una base que ya contenga tablas. No borra tablas ni volúmenes.
+
+La carga de esquema y datos se ejecuta en una sola transacción y los propietarios se adaptan al usuario local. PostgreSQL restaura los registros de auditoría antes de recrear su disparador de solo anexado, sin desactivar protecciones. Después, con los servicios todavía detenidos, otra transacción pausa la automatización, invalida las reservas de trabajos anteriores y registra la restauración. Si este paso falla, el comando devuelve un error: conserva los servicios detenidos hasta comprobar la pausa. Las copias anteriores a la automatización también son compatibles; sus migraciones posteriores crean el control inicialmente pausado.
+
+El SHA-256 detecta alteraciones respecto al manifiesto; no acredita quién produjo el archivo. Usa copias propias o de un origen de confianza, ya que una copia PostgreSQL contiene definiciones SQL además de datos.
 
 Si la base de destino ya contiene información, detente y crea una instalación independiente o una copia de esa base. No intentes vaciarla con este manual.
 
@@ -51,11 +58,13 @@ Si usaste `docker load` y no quieres recompilar, sustituye el último comando po
 
 ## 4. Comprobar el destino
 
-1. `docker compose ps`: los tres servicios deben estar saludables.
+1. `docker compose ps`: API, frontend, PostgreSQL y trabajador deben estar saludables.
 2. Inicia sesión con las credenciales del `.env` de destino.
 3. Compara los totales de confederaciones, competiciones, equipos y partidos con el origen.
 4. Abre varias fichas y comprueba fechas, matrículas y fuentes importadas.
-5. Genera una nueva copia desde el destino. Conserva el origen hasta terminar estas comprobaciones.
+5. En **Automatización**, comprueba la pausa, las fuentes, sus credenciales y las cuotas antes de reanudar. La cuota guardada refleja el momento de la copia, no necesariamente todo el consumo posterior de la cuenta externa.
+6. Comprueba que los escudos y su atribución se conservan. `--include-media` restaura la caché antes de iniciar los servicios; si la copia antigua no tiene archivo de medios, conserva la compatibilidad y no intenta descargarlo.
+7. Genera una nueva copia desde el destino. Conserva el origen hasta terminar estas comprobaciones.
 
 El archivo de copia incluye `alembic_version`; el arranque aplica las migraciones pendientes del código de destino. Para una transferencia normal usa la misma versión del código primero y actualiza después de verificar.
 

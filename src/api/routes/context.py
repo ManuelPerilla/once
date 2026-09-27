@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from src.api.dependencies import get_session, verificar_token
 from src.api.persistence import save
+from src.football.rosters import roster_page
 from src.models import (
     Competicion,
     Estadio,
@@ -14,6 +17,7 @@ from src.models import (
     Jugador,
     JugadorBase,
     JugadorRead,
+    PlantillaPage,
     Temporada,
     TemporadaBase,
     TemporadaRead,
@@ -68,3 +72,16 @@ def crear_jugador(jugador_in: JugadorBase, session: Session = Depends(get_sessio
 @router.get("/jugadores/", response_model=list[JugadorRead])
 def leer_jugadores(session: Session = Depends(get_session)):
     return session.exec(select(Jugador)).all()
+
+
+@router.get("/plantillas/", response_model=PlantillaPage)
+def leer_plantillas(
+    equipo_id: int | None = Query(default=None, gt=0),
+    jugador_id: int | None = Query(default=None, gt=0),
+    estado: Literal["active", "closed"] | None = None,
+    search: str | None = Query(default=None, max_length=120),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    return roster_page(session, equipo_id, jugador_id, estado, search, page, page_size)

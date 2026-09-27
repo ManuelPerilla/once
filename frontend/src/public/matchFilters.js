@@ -16,11 +16,33 @@ export function sortMatches(matches) {
   });
 }
 
-export function filterMatches(matches, status = "", competition = "") {
+export function normalizeSearch(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function filterMatches(
+  matches,
+  status = "",
+  competition = "",
+  { query = "", season = "" } = {},
+) {
+  const search = normalizeSearch(query);
   return sortMatches(matches).filter(
     (match) =>
       (!status || match.estado === status) &&
-      (!competition || String(match.competicion_id) === String(competition)),
+      (!competition || String(match.competicion_id) === String(competition)) &&
+      (!season ||
+        (season === "unassigned"
+          ? !match.temporada_id
+          : String(match.temporada_id) === String(season))) &&
+      (!search ||
+        normalizeSearch(
+          `${match.equipo_local?.nombre || ""} ${match.equipo_visitante?.nombre || ""} ${match.competicion?.nombre || ""}`,
+        ).includes(search)),
   );
 }
 

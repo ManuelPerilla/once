@@ -384,6 +384,36 @@ def test_wikidata_preview_rejects_invalid_qid_without_network(authenticated):
     assert response.status_code == 400
 
 
+def run_sync(authenticated, path):
+    """Exercise the queued API contract and its worker, using mocked upstream reads."""
+    from sqlmodel import Session
+
+    from src import database
+    from src.sync.handlers import REGISTRY, register_default_handlers
+    from src.sync.models import SyncJob
+    from src.sync.service import SyncEngine
+
+    assert authenticated.put("/automation/global", json={"mode": "automatic"}).status_code == 200
+    queued = authenticated.post(path)
+    assert queued.status_code == 202, queued.text
+    register_default_handlers()
+    engine = SyncEngine(database.engine, REGISTRY)
+    assert engine.run_one("test-provider")
+    with Session(database.engine) as session:
+        job = session.get(SyncJob, queued.json()["job_id"])
+        assert job.status == "succeeded", job.error
+        result = dict(job.result)
+
+    class Completed:
+        status_code = 200
+        text = str(result)
+
+        def json(self):
+            return result
+
+    return Completed()
+
+
 def test_api_football_sync_creates_and_updates_mapped_fixture(authenticated, catalog, monkeypatch):
     season = authenticated.post(
         "/temporadas/",
@@ -406,6 +436,7 @@ def test_api_football_sync_creates_and_updates_mapped_fixture(authenticated, cat
             "entity_type": "season",
             "local_id": season["id"],
             "external_id": "2026",
+            "external_scope": "league:239:edition:Clausura",
         },
         {
             "provider": "api-football",
@@ -451,8 +482,9 @@ def test_api_football_sync_creates_and_updates_mapped_fixture(authenticated, cat
 
     monkeypatch.setattr(APIFootballClient, "fixtures", fake_fixtures)
 
-    first = authenticated.post(
-        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}"
+    first = run_sync(
+        authenticated,
+        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}",
     )
     assert first.status_code == 200, first.text
     assert first.json()["created"] == 1
@@ -466,8 +498,9 @@ def test_api_football_sync_creates_and_updates_mapped_fixture(authenticated, cat
 
     score["home"] = 2
     score["away"] = 2
-    second = authenticated.post(
-        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}"
+    second = run_sync(
+        authenticated,
+        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}",
     )
     assert second.status_code == 200
     assert second.json()["created"] == 0
@@ -523,8 +556,9 @@ def test_api_football_sync_skips_unmapped_teams(authenticated, catalog, monkeypa
         },
     )
 
-    response = authenticated.post(
-        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}"
+    response = run_sync(
+        authenticated,
+        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}",
     )
     assert response.status_code == 200
     assert response.json()["created"] == 0
@@ -581,6 +615,7 @@ def test_api_football_match_detail_sync_is_idempotent_and_keeps_manual_rows(
             "entity_type": "season",
             "local_id": season["id"],
             "external_id": "2026",
+            "external_scope": "league:239:edition:Clausura",
         },
         {
             "provider": "api-football",
@@ -620,8 +655,9 @@ def test_api_football_match_detail_sync_is_idempotent_and_keeps_manual_rows(
             ],
         },
     )
-    synced = authenticated.post(
-        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}"
+    synced = run_sync(
+        authenticated,
+        f"/providers/api-football/sync/competition/{catalog['comp']['id']}/season/{season['id']}",
     )
     assert synced.status_code == 200
     match = authenticated.get("/partidos/").json()[0]
@@ -714,14 +750,14 @@ def test_api_football_match_detail_sync_is_idempotent_and_keeps_manual_rows(
     monkeypatch.setattr(APIFootballClient, "fixture_lineups", lambda *_: lineups_payload)
     monkeypatch.setattr(APIFootballClient, "fixture_statistics", lambda *_: statistics_payload)
 
-    first = authenticated.post(f"/providers/api-football/sync/match/{match['id']}")
+    first = run_sync(authenticated, f"/providers/api-football/sync/match/{match['id']}")
     assert first.status_code == 200, first.text
     assert first.json()["events"] == 1
     assert first.json()["lineup_entries"] == 2
     assert first.json()["statistics"] is True
     assert first.json()["players_touched"] == 3
 
-    second = authenticated.post(f"/providers/api-football/sync/match/{match['id']}")
+    second = run_sync(authenticated, f"/providers/api-football/sync/match/{match['id']}")
     assert second.status_code == 200
 
     detail = authenticated.get(f"/partidos/{match['id']}").json()

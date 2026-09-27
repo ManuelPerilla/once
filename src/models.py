@@ -2,7 +2,7 @@ import datetime
 import uuid
 from enum import Enum
 
-from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, DateTime, Index, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from src.datetime_type import UTCDateTime
@@ -12,6 +12,12 @@ class EstadoPartido(str, Enum):
     VIVO = "en vivo"
     FINALIZADO = "finalizado"
     PROGRAMADO = "programado"
+    APLAZADO = "aplazado"
+    SUSPENDIDO = "suspendido"
+    CANCELADO = "cancelado"
+    ABANDONADO = "abandonado"
+    ADJUDICADO = "adjudicado"
+    DESCONOCIDO = "desconocido"
 
 
 class TipoCompeticion(str, Enum):
@@ -106,6 +112,35 @@ class FaseRead(FaseBase):
     id: int
 
 
+class Grupo(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("fase_id", "nombre", name="uq_grupo_fase_nombre"),)
+    id: int | None = Field(default=None, primary_key=True)
+    fase_id: int = Field(foreign_key="fase.id", index=True)
+    nombre: str
+
+
+class ParticipacionTemporada(SQLModel, table=True):
+    equipo_id: int = Field(foreign_key="equipo.id", primary_key=True)
+    temporada_id: int = Field(foreign_key="temporada.id", primary_key=True, index=True)
+    source: str
+    verified_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UTCDateTime(), nullable=False),
+    )
+
+
+class ParticipacionGrupo(SQLModel, table=True):
+    equipo_id: int = Field(foreign_key="equipo.id", primary_key=True)
+    grupo_id: int = Field(foreign_key="grupo.id", primary_key=True, index=True)
+    source: str = "unverified"
+
+
+class ParticipacionFase(SQLModel, table=True):
+    equipo_id: int = Field(foreign_key="equipo.id", primary_key=True)
+    fase_id: int = Field(foreign_key="fase.id", primary_key=True, index=True)
+    source: str = "unverified"
+
+
 class EstadioBase(SQLModel):
     nombre: str
     ciudad: str | None = None
@@ -193,9 +228,28 @@ class JugadorEquipo(SQLModel, table=True):
     dorsal: int | None = Field(default=None, ge=0, le=99)
 
 
+class PlantillaRead(SQLModel):
+    id: int
+    jugador_id: int
+    equipo_id: int
+    jugador_nombre: str
+    equipo_nombre: str
+    fecha_inicio: datetime.date | None = None
+    fecha_fin: datetime.date | None = None
+    dorsal: int | None = None
+
+
+class PlantillaPage(SQLModel):
+    items: list[PlantillaRead]
+    total: int
+    page: int
+    page_size: int
+
+
 class EstadisticasBase(SQLModel):
     partido_id: int = Field(foreign_key="partido.id", gt=0)
     source: str | None = None
+    source_key: str | None = None
     posesion_local: int = Field(ge=0, le=100)
     posesion_visitante: int = Field(ge=0, le=100)
     tiros_puerta_local: int = Field(ge=0)
@@ -207,6 +261,10 @@ class EstadisticasCreate(EstadisticasBase):
 
 
 class EstadisticasPartido(EstadisticasBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("partido_id", "source", "source_key", name="uq_stats_source_key"),
+        Index("ix_estadisticaspartido_partido", "partido_id"),
+    )
     id: int | None = Field(default=None, primary_key=True)
     partido: "Partido" = Relationship(back_populates="estadisticas")
 
@@ -215,6 +273,7 @@ class PartidoBase(SQLModel):
     competicion_id: int | None = Field(default=None, foreign_key="competicion.id")
     temporada_id: int | None = Field(default=None, foreign_key="temporada.id")
     fase_id: int | None = Field(default=None, foreign_key="fase.id")
+    grupo_id: int | None = Field(default=None, foreign_key="grupo.id")
     estadio_id: int | None = Field(default=None, foreign_key="estadio.id")
     equipo_local_id: int | None = Field(default=None, foreign_key="equipo.id")
     equipo_visitante_id: int | None = Field(default=None, foreign_key="equipo.id")
@@ -223,12 +282,20 @@ class PartidoBase(SQLModel):
         sa_column=Column(UTCDateTime(), nullable=True, index=True),
     )
     jornada: str | None = None
-    marcador_local: int = Field(default=0, ge=0)
-    marcador_visitante: int = Field(default=0, ge=0)
+    marcador_local: int | None = Field(default=None, ge=0)
+    marcador_visitante: int | None = Field(default=None, ge=0)
     estado: EstadoPartido
+    estado_fuente: str | None = None
 
 
 class Partido(PartidoBase, table=True):
+    __table_args__ = (
+        CheckConstraint("equipo_local_id != equipo_visitante_id", name="ck_partido_distinct_teams"),
+        CheckConstraint("marcador_local >= 0", name="ck_partido_score_home"),
+        CheckConstraint("marcador_visitante >= 0", name="ck_partido_score_away"),
+        Index("ix_partido_contexto_fecha", "competicion_id", "temporada_id", "fecha", "id"),
+        Index("ix_partido_tabla", "temporada_id", "fase_id", "grupo_id", "estado"),
+    )
     id: int | None = Field(default=None, primary_key=True)
     competicion_rel: Competicion | None = Relationship(back_populates="partidos")
     temporada_rel: Temporada | None = Relationship(back_populates="partidos")
@@ -261,6 +328,7 @@ class PartidoCreate(PartidoBase):
 class EventoPartidoBase(SQLModel):
     partido_id: int = Field(foreign_key="partido.id", gt=0)
     source: str | None = None
+    source_key: str | None = None
     equipo_id: int | None = Field(default=None, foreign_key="equipo.id")
     jugador_id: int | None = Field(default=None, foreign_key="jugador.id")
     asistente_id: int | None = Field(default=None, foreign_key="jugador.id")
@@ -271,6 +339,10 @@ class EventoPartidoBase(SQLModel):
 
 
 class EventoPartido(EventoPartidoBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("partido_id", "source", "source_key", name="uq_event_source_key"),
+        Index("ix_eventopartido_partido", "partido_id"),
+    )
     id: int | None = Field(default=None, primary_key=True)
     partido: Partido = Relationship(back_populates="eventos")
 
@@ -282,6 +354,7 @@ class EventoPartidoRead(EventoPartidoBase):
 class AlineacionPartidoBase(SQLModel):
     partido_id: int = Field(foreign_key="partido.id", gt=0)
     source: str | None = None
+    source_key: str | None = None
     equipo_id: int = Field(foreign_key="equipo.id", gt=0)
     jugador_id: int = Field(foreign_key="jugador.id", gt=0)
     titular: bool = False
@@ -291,6 +364,10 @@ class AlineacionPartidoBase(SQLModel):
 
 
 class AlineacionPartido(AlineacionPartidoBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("partido_id", "source", "source_key", name="uq_lineup_source_key"),
+        Index("ix_alineacionpartido_partido", "partido_id"),
+    )
     id: int | None = Field(default=None, primary_key=True)
     partido: Partido = Relationship(back_populates="alineaciones")
 
@@ -304,14 +381,16 @@ class PartidoReadDetail(SQLModel):
     competicion_id: int | None
     temporada_id: int | None = None
     fase_id: int | None = None
+    grupo_id: int | None = None
     estadio_id: int | None = None
     equipo_local_id: int | None
     equipo_visitante_id: int | None
     fecha: datetime.datetime | None = None
     jornada: str | None = None
-    marcador_local: int
-    marcador_visitante: int
+    marcador_local: int | None
+    marcador_visitante: int | None
     estado: EstadoPartido
+    estado_fuente: str | None = None
     competicion: CompeticionRead | None = None
     temporada: TemporadaRead | None = None
     fase: FaseRead | None = None
@@ -331,6 +410,7 @@ class ProviderMappingBase(SQLModel):
     entity_type: str
     local_id: int = Field(gt=0)
     external_id: str
+    external_scope: str = ""
     source_url: str | None = None
     verified_at: datetime.datetime | None = Field(
         default=None,
@@ -344,8 +424,10 @@ class ProviderMapping(ProviderMappingBase, table=True):
             "provider",
             "entity_type",
             "external_id",
+            "external_scope",
             name="uq_provider_mapping_external",
         ),
+        Index("ix_provider_mapping_local", "provider", "entity_type", "local_id"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -425,3 +507,117 @@ class MediaAsset(MediaAssetBase, table=True):
 
 class MediaAssetRead(MediaAssetBase):
     id: int
+
+
+def utcnow():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+class EntityRevision(SQLModel, table=True):
+    entity_type: str = Field(primary_key=True)
+    entity_id: int = Field(primary_key=True)
+    version: int = 0
+
+
+class FieldState(SQLModel, table=True):
+    entity_type: str = Field(primary_key=True)
+    entity_id: int = Field(primary_key=True)
+    field: str = Field(primary_key=True)
+    protected: bool = False
+    source: str | None = None
+    observed_at: datetime.datetime | None = Field(
+        default=None, sa_column=Column(UTCDateTime(), nullable=True)
+    )
+
+
+class AuditChange(SQLModel, table=True):
+    __table_args__ = (Index("ix_audit_entity_id", "entity_type", "entity_id", "id"),)
+    id: int | None = Field(default=None, primary_key=True)
+    entity_type: str
+    entity_id: int
+    field: str
+    before: object | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    after: object | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    action: str
+    actor: str
+    reason: str
+    source: str | None = None
+    run_id: str | None = None
+    version: int
+    created_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+
+
+class DataIssue(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    key: str = Field(unique=True, index=True)
+    entity_type: str
+    entity_id: int
+    field: str | None = None
+    source: str
+    reason: str
+    status: str = Field(default="open", index=True)
+    proposed: object | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    occurrences: int = 1
+    created_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+    updated_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+
+
+class StandingRule(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("scope_key", "version", name="uq_standing_rule_version"),)
+    id: int | None = Field(default=None, primary_key=True)
+    scope_key: str = Field(index=True)
+    temporada_id: int = Field(foreign_key="temporada.id")
+    fase_id: int | None = Field(default=None, foreign_key="fase.id")
+    grupo_id: int | None = Field(default=None, foreign_key="grupo.id")
+    version: int
+    name: str
+    source_url: str
+    # Only rules explicitly reviewed by an operator can publish a calculated table.
+    verified: bool = False
+    config: dict = Field(sa_column=Column(JSON, nullable=False))
+    actor: str
+    created_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+
+
+class StandingAdjustment(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    scope_key: str = Field(index=True)
+    equipo_id: int = Field(foreign_key="equipo.id")
+    points: int
+    reason: str
+    source_url: str
+    actor: str
+    created_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+
+
+class StandingProjection(SQLModel, table=True):
+    scope_key: str = Field(primary_key=True)
+    rule_id: int = Field(foreign_key="standingrule.id")
+    input_hash: str
+    rows: list = Field(sa_column=Column(JSON, nullable=False))
+    updated_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )
+
+
+class OfficialStandingSnapshot(SQLModel, table=True):
+    __table_args__ = (Index("ix_official_table_latest", "scope_key", "fetched_at"),)
+    id: int | None = Field(default=None, primary_key=True)
+    scope_key: str
+    source: str
+    source_url: str
+    content_hash: str
+    rows: list = Field(sa_column=Column(JSON, nullable=False))
+    fetched_at: datetime.datetime = Field(
+        default_factory=utcnow, sa_column=Column(UTCDateTime(), nullable=False)
+    )

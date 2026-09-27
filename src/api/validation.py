@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlmodel import Session
 
-from src.models import Competicion, Estadio, Fase, PartidoCreate, Temporada
+from src.models import Competicion, Estadio, Fase, Grupo, PartidoCreate, Temporada
 
 
 def validar_contexto_partido(
@@ -27,3 +27,7 @@ def validar_contexto_partido(
 
     if partido_in.estadio_id and not session.get(Estadio, partido_in.estadio_id):
         raise HTTPException(status_code=404, detail="Estadio no encontrado")
+    if partido_in.grupo_id:
+        group = session.get(Grupo, partido_in.grupo_id)
+        if not group or group.fase_id != partido_in.fase_id:
+            raise HTTPException(400, "El grupo no pertenece a la fase indicada")

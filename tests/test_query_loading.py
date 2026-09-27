@@ -63,7 +63,12 @@ def test_match_queries_remain_bounded_as_the_list_grows(authenticated, match_pay
     detailed = next(item for item in matches if item["id"] == first["id"])
     assert detailed["estadisticas"][0]["posesion_local"] == 60
     assert detailed["equipo_local"]["id"] == match_payload["equipo_local_id"]
-    assert read(f"/public/partidos/{first['id']}", 4)[0] == detailed
-    assert read(f"/partidos/{first['id']}", 4)[0] == detailed
+    # Provenance adds one bounded lookup, independent of the number of matches.
+    public_detail = read(f"/public/partidos/{first['id']}", 5)[0]
+    assert public_detail.pop("data_source")["provider"] == "manual"
+    assert public_detail == detailed
+    admin_detail = read(f"/partidos/{first['id']}", 5)[0]
+    assert admin_detail.pop("data_source")["provider"] == "manual"
+    assert admin_detail == detailed
     admin, _ = read("/partidos/", 1)
     assert len(admin) == 13 and "estadisticas" not in admin[0]

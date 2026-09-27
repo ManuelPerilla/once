@@ -92,7 +92,7 @@ export function LoginView({ login, notice }) {
               </p>
             )}
             <button disabled={loading} className="v-btn v-btn-dark">
-              {loading ? "Entrando…" : "Entrar al workspace"}
+              {loading ? "Entrando…" : "Entrar a ONCE"}
               <Icon name="arrow" />
             </button>
           </form>

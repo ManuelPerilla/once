@@ -16,6 +16,9 @@ const empty = {
   catalogsReady: false,
   matchesReady: false,
   updatedAt: null,
+  counts: {},
+  permissions: [],
+  username: "",
 };
 
 async function readCatalogs(signal) {
@@ -51,10 +54,11 @@ export function useAdminData(notify) {
     [clearSession, notify],
   );
 
-  const acceptMatches = useCallback((partidos) => {
+  const acceptMatches = useCallback((summary) => {
     setData((current) => ({
       ...current,
-      partidos,
+      partidos: summary.recent,
+      counts: summary.counts,
       matchesReady: true,
       updatedAt: new Date(),
     }));
@@ -70,10 +74,14 @@ export function useAdminData(notify) {
 
   useEffect(() => {
     const request = requests.start("session");
-    apiCollection("/partidos/", { signal: request.signal })
-      .then((partidos) => {
+    apiRequest("/auth/session", { signal: request.signal })
+      .then((session) => {
         if (!request.current()) return;
-        acceptMatches(partidos);
+        setData((current) => ({
+          ...current,
+          permissions: session.permissions || [],
+          username: session.username,
+        }));
         setStatus("authenticated");
       })
       .catch((error) => {
@@ -86,15 +94,15 @@ export function useAdminData(notify) {
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    const request = requests.start("catalogs");
-    readCatalogs(request.signal)
-      .then((catalogs) => {
-        if (request.current()) acceptCatalogs(catalogs);
+    const request = requests.start("summary");
+    apiRequest("/admin/summary", { signal: request.signal })
+      .then((summary) => {
+        if (request.current()) acceptMatches(summary);
       })
       .catch((error) => {
         if (request.current()) handleApiError(error);
       });
-  }, [status, requests, acceptCatalogs, handleApiError]);
+  }, [status, requests, acceptMatches, handleApiError]);
 
   const refresh = async (kind) => {
     const request = requests.start(kind);
@@ -102,7 +110,7 @@ export function useAdminData(notify) {
       const result =
         kind === "catalogs"
           ? await readCatalogs(request.signal)
-          : await apiCollection("/partidos/", { signal: request.signal });
+          : await apiRequest("/admin/summary", { signal: request.signal });
       if (request.current())
         (kind === "catalogs" ? acceptCatalogs : acceptMatches)(result);
     } catch (error) {
@@ -118,11 +126,15 @@ export function useAdminData(notify) {
         body: credentials,
         signal: request.signal,
       });
-      const partidos = await apiCollection("/partidos/", {
+      const session = await apiRequest("/auth/session", {
         signal: request.signal,
       });
       if (request.current()) {
-        acceptMatches(partidos);
+        setData((current) => ({
+          ...current,
+          permissions: session.permissions || [],
+          username: session.username,
+        }));
         setStatus("authenticated");
       }
     } catch (error) {
@@ -142,7 +154,10 @@ export function useAdminData(notify) {
   const refreshData = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refresh("matches"), refresh("catalogs")]);
+      await Promise.all([
+        refresh("matches"),
+        ...(data.catalogsReady ? [refresh("catalogs")] : []),
+      ]);
     } finally {
       setRefreshing(false);
     }

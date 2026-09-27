@@ -20,7 +20,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page
     .getByLabel("Contraseña", { exact: true })
     .fill(process.env.SMOKE_PASSWORD);
-  await page.getByRole("button", { name: "Entrar al workspace" }).click();
+  await page.getByRole("button", { name: "Entrar a ONCE" }).click();
   await expect(
     page.getByRole("heading", { name: "Tu centro de operaciones" }),
   ).toBeVisible();
@@ -137,6 +137,7 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
 
   await page.getByRole("button", { name: "Matrículas", exact: true }).click();
   await expectArtwork(page, "registration");
+  await page.getByRole("tab", { name: "Nueva matrícula", exact: true }).click();
   await page.locator("#matricula-competition").selectOption(String(comp.id));
   await expect(
     page
@@ -176,7 +177,9 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
   await dialog
     .getByLabel("Equipo visitante", { exact: true })
     .selectOption(String(visitor.id));
-  await dialog.getByLabel("Fecha y hora", { exact: true }).fill("2026-09-28T19:30");
+  await dialog
+    .getByLabel("Fecha y hora", { exact: true })
+    .fill("2026-09-28T19:30");
   await dialog.getByLabel("Jornada", { exact: true }).fill("Fecha 12");
   await dialog.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(dialog).toHaveCount(0);
@@ -205,7 +208,9 @@ test("real login, catalog, team editor, enrollment, match, reload and logout", a
     (item) =>
       item.competicion_id === comp.id && item.equipo_local_id === local.id,
   );
-  expect(new Date(storedMatch.fecha).getTime()).toBe(new Date("2026-09-28T19:30").getTime());
+  expect(new Date(storedMatch.fecha).getTime()).toBe(
+    new Date("2026-09-28T19:30").getTime(),
+  );
   expect(storedMatch.jornada).toBe("Fecha 12");
   await page
     .getByRole("button", {
@@ -260,10 +265,12 @@ test("mobile home, catalogue and modal stay usable with real data", async ({
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
   await page.getByRole("tab", { name: /^Equipos/ }).click();
   await page.getByRole("tab", { name: /^Equipos/ }).press("End");
-  await expect(
-    page.getByRole("tab", { name: /^Confederaciones/ }),
-  ).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("tab", { name: /^Confederaciones/ }).press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: /^Plantillas/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.getByRole("tab", { name: /^Plantillas/ }).press("Home");
+  await page.getByRole("tab", { name: /^Competiciones/ }).press("ArrowRight");
   await expect(page.getByRole("tab", { name: /^Equipos/ })).toHaveAttribute(
     "aria-selected",
     "true",

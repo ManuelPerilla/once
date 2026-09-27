@@ -1,0 +1,105 @@
+/* Shared finishing rules for marks, accessible credits and touch interaction. */
+button,
+a,
+summary {
+  touch-action: manipulation;
+}
+:focus-visible {
+  scroll-margin-block: 24px;
+}
+
+.v-crest.v-crest {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
+}
+.v-crest img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 3px #101d3615);
+}
+.v-crest[data-fallback] > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding-bottom: 4%;
+  clip-path: polygon(
+    50% 0,
+    92% 15%,
+    87% 67%,
+    72% 87%,
+    50% 100%,
+    28% 87%,
+    13% 67%,
+    8% 15%
+  );
+  background: linear-gradient(145deg, #e1eacb, #dce7f6);
+  color: #344b67;
+  font-family: var(--body);
+  font-weight: 750;
+  font-size: 16px;
+  letter-spacing: -0.5px;
+}
+.v-crest-small[data-fallback] > span {
+  font-size: 12px;
+}
+.once-footer-credits {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.once-crest-credits {
+  max-width: 900px;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.once-crest-credits summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 10px;
+  width: fit-content;
+  font-weight: 650;
+  color: var(--ink);
+}
+.once-crest-credits p {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 8px 0 16px;
+}
+.once-crest-credits ul {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 16px;
+}
+.once-crest-credits li {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.once-crest-credits li a {
+  display: inline;
+  font-size: 14px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.once-crest-credits li span {
+  font-size: 14px;
+  letter-spacing: normal;
+}
+@media (max-width: 900px) {
+  :focus-visible {
+    scroll-margin-bottom: calc(120px + env(safe-area-inset-bottom));
+  }
+}

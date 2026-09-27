@@ -21,7 +21,7 @@ export function MatchRow({ match, onDelete }) {
         <strong>
           {match.estado === "programado"
             ? "vs"
-            : `${match.marcador_local} : ${match.marcador_visitante}`}
+            : `${match.marcador_local ?? "—"} : ${match.marcador_visitante ?? "—"}`}
         </strong>
         <span>
           {match.equipo_visitante?.nombre || "Equipo sin asignar"}

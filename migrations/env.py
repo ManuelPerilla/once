@@ -6,6 +6,8 @@ from sqlmodel import SQLModel
 
 from src.database import engine
 import src.models  # noqa: F401 - registra modelos en SQLModel.metadata
+import src.sync.models  # noqa: F401 - queue metadata for migrations
+import src.accounts.models  # noqa: F401 - individual administrative actors
 
 
 config = context.config

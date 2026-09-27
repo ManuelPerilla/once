@@ -1,6 +1,7 @@
-"""Comprueba que una base pre-Alembic adopta el baseline sin perder el esquema."""
+"""Comprueba adopción legacy y rechazo del downgrade destructivo en una base vacía de pruebas."""
 
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
 from src.database import engine
@@ -9,6 +10,11 @@ from src.migrate import BASELINE_REVISION, alembic_config, migrate
 
 def main() -> None:
     config = alembic_config()
+    memory = engine.dialect.name == "sqlite" and engine.url.database in (None, "", ":memory:")
+    if not memory and not (engine.url.database or "").endswith("_test"):
+        raise RuntimeError("Usa exclusivamente una base desechable cuyo nombre termine en _test.")
+    if inspect(engine).get_table_names():
+        raise RuntimeError("La base de pruebas debe estar vacía; no se modificó ninguna tabla.")
 
     # Construimos exactamente el esquema legacy mediante su revisión base.
     command.upgrade(config, BASELINE_REVISION)
@@ -33,6 +39,15 @@ def main() -> None:
         "mediaasset",
         "providersnapshot",
         "catalogimportbatch",
+        "synccontrol",
+        "syncscope",
+        "syncjob",
+        "syncobservation",
+        "auditchange",
+        "fieldstate",
+        "standingrule",
+        "standingprojection",
+        "adminaccount",
     }
     missing = expected_tables - tables
     if missing:
@@ -46,8 +61,20 @@ def main() -> None:
             f"Faltan columnas de partido después de migrar: {sorted(missing_columns)}"
         )
 
-    command.downgrade(config, "base")
-    print("Migración legacy -> head verificada.")
+    # Accounts and append-only audit cannot be removed safely by downgrading.
+    # Rollback is a verified backup restoration, tested by the transfer procedure.
+    try:
+        command.downgrade(config, "base")
+    except RuntimeError as exc:
+        if "Restore a verified backup" not in str(exc):
+            raise
+    else:
+        raise RuntimeError("El downgrade eliminó un esquema que debe conservar su auditoría.")
+    with engine.connect() as connection:
+        revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
+    if revision != ScriptDirectory.from_config(config).get_current_head():
+        raise RuntimeError("El rechazo del downgrade no conservó la revisión actual.")
+    print("Adopción legacy -> head y protección contra downgrade verificadas.")
 
 
 if __name__ == "__main__":

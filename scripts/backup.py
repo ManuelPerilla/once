@@ -14,7 +14,7 @@ def compose_args(compose_file=None):
     return ["docker", "compose", *(["-f", str(compose_file)] if compose_file else [])]
 
 
-def backup(directory, compose_file=None):
+def backup(directory, compose_file=None, *, include_media=False):
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"once-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}.dump"
@@ -36,6 +36,11 @@ def backup(directory, compose_file=None):
         )
     with path.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    media = None
+    if include_media:
+        from scripts.media_backup import backup_media
+
+        media = backup_media(path, compose_file)
     path.with_suffix(".json").write_text(
         json.dumps(
             {
@@ -44,6 +49,7 @@ def backup(directory, compose_file=None):
                 "bytes": path.stat().st_size,
                 "created_at": datetime.now(UTC).isoformat(),
                 "format": "postgresql-custom",
+                "media": media,
             },
             indent=2,
         ),
@@ -56,5 +62,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", type=Path, default=ROOT / ".local" / "backups")
     parser.add_argument("--compose-file", type=Path)
+    parser.add_argument("--include-media", action="store_true")
     args = parser.parse_args()
-    print(backup(args.directory, args.compose_file))
+    print(backup(args.directory, args.compose_file, include_media=args.include_media))

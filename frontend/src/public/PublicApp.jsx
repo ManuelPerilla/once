@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiCollection } from "../api";
+import { apiCollection, apiRequest } from "../api";
+import { useLiveUpdates } from "../lib/useLiveUpdates";
 import { Brand } from "../components/ui/Brand";
 import { Crest } from "../components/ui/Crest";
+import { CrestCredits } from "../components/ui/CrestCredits";
 import { Icon } from "../components/ui/Icon";
 import { Status } from "../components/ui/Status";
+import { MatchSource } from "../components/football/MatchSource.jsx";
 import { runViewTransition } from "../lib/viewTransition";
 import { CompetitionFlow } from "./components/CompetitionFlow";
 import { ConnectionGraph } from "./components/ConnectionGraph";
@@ -13,6 +16,8 @@ import { MatchTimeline } from "./components/MatchTimeline";
 import { Pitch } from "./components/Pitch";
 import { SearchBox } from "./components/SearchBox";
 import { StandingsTable } from "./components/StandingsTable";
+import { DetailSections } from "./components/DetailSections";
+import { HistoryFacts } from "./components/HistoryFacts";
 import { ExploreHome, MatchExplorer, EntityExplorer } from "./ExploreHome";
 import { formatMatchDate } from "./matchFilters";
 import { routeFromPath, publicPath } from "./routes";
@@ -39,17 +44,29 @@ function PublicShell({
         </button>
         <nav className="once-public-nav" aria-label="Explorar fútbol">
           {[
-            ["home", "Descubrir"],
-            ["matches", "Partidos"],
-            ["competitions", "Competiciones"],
-            ["teams", "Equipos"],
-          ].map(([page, label]) => (
+            ["home", "Descubrir", "home", "Descubrir"],
+            ["matches", "Partidos", "pitch", "Partidos"],
+            ["competitions", "Competiciones", "trophy", "Torneos"],
+            ["teams", "Equipos", "shield", "Equipos"],
+          ].map(([page, label, icon, compactLabel]) => (
             <button
               key={page}
-              aria-current={route.type === page ? "page" : undefined}
+              aria-label={label}
+              aria-current={
+                route.type === page ||
+                (page === "matches" && route.type === "match") ||
+                (page === "teams" && route.type === "team") ||
+                (page === "competitions" && route.type === "competition")
+                  ? "page"
+                  : undefined
+              }
               onClick={() => navigate(page)}
             >
-              {label}
+              <Icon name={icon} />
+              <span className="once-nav-wide-label">{label}</span>
+              <span className="once-nav-compact-label" aria-hidden="true">
+                {compactLabel}
+              </span>
             </button>
           ))}
         </nav>
@@ -58,6 +75,7 @@ function PublicShell({
           competitions={searchData.competitions || []}
           players={searchData.players || []}
           matches={searchData.matches || []}
+          remote={!demo}
           navigate={navigate}
         />
         <a className="p-admin-link" href="/">
@@ -82,6 +100,9 @@ function PublicShell({
         <a href="/">
           Centro de operaciones <Icon name="arrow" />
         </a>
+        <div className="once-footer-credits">
+          <CrestCredits />
+        </div>
       </footer>
     </div>
   );
@@ -103,7 +124,7 @@ function Score({ match }) {
         <strong>
           {scheduled
             ? "VS"
-            : `${match.marcador_local} : ${match.marcador_visitante}`}
+            : `${match.marcador_local ?? "—"} : ${match.marcador_visitante ?? "—"}`}
         </strong>
       </div>
       <div className="p-team" data-side="away">
@@ -138,13 +159,14 @@ function MatchCard({ match, navigate }) {
       <span>
         {match.competicion?.nombre || "Sin competición"}
         {match.fecha && <small>{formatMatchDate(match.fecha)}</small>}
+        <MatchSource source={match.data_source} />
       </span>
       <strong>
         {match.equipo_local?.nombre || "Por confirmar"}
         <b>
           {match.estado === "programado"
             ? "VS"
-            : `${match.marcador_local} : ${match.marcador_visitante}`}
+            : `${match.marcador_local ?? "—"} : ${match.marcador_visitante ?? "—"}`}
         </b>
         {match.equipo_visitante?.nombre || "Por confirmar"}
       </strong>
@@ -184,6 +206,7 @@ function MatchMeta({ match }) {
 }
 
 function MatchDetail({ match, players, navigate }) {
+  const [section, setSection] = useState("summary");
   if (!match) {
     return (
       <main className="p-detail" id="public-content" tabIndex={-1}>
@@ -199,131 +222,185 @@ function MatchDetail({ match, players, navigate }) {
 
   return (
     <main className="p-detail" id="public-content" tabIndex={-1}>
-      <button className="p-back" onClick={() => navigate("home")}>
-        <Icon name="arrow" /> Volver al archivo
+      <button className="p-back" onClick={() => navigate("matches")}>
+        <Icon name="arrow" /> Volver a partidos
       </button>
       <section className="p-match-hero">
         <span className="p-kicker">
           {match.competicion?.nombre || "PARTIDO"}
         </span>
+        <MatchSource source={match.data_source} detailed />
         <Score match={match} />
         <MatchMeta match={match} />
         <span className="p-record">
           REGISTRO #{String(match.id).padStart(4, "0")}
         </span>
       </section>
+      <DetailSections
+        label="Secciones del partido"
+        current={section}
+        onChange={setSection}
+        sections={[
+          ["summary", "Resumen"],
+          ["timeline", "Cronología", match.eventos?.length || 0],
+          ["lineups", "Alineaciones", match.alineaciones?.length || 0],
+          ["connections", "Conexiones"],
+        ]}
+      />
+      {section === "connections" && (
+        <>
+          <section className="p-match-context">
+            <Pitch />
+            <div className="p-context-copy">
+              <span className="p-kicker">SIGUE EL HILO</span>
+              <h2>Este partido conecta.</h2>
+              <div className="p-connection-list">
+                {match.equipo_local && (
+                  <button
+                    onClick={() => navigate("team", match.equipo_local.id)}
+                  >
+                    <Crest
+                      small
+                      src={match.equipo_local.logo}
+                      name={match.equipo_local.nombre}
+                    />
+                    <span>
+                      <small>EQUIPO LOCAL</small>
+                      <strong>{match.equipo_local.nombre}</strong>
+                    </span>
+                    <Icon name="arrow" />
+                  </button>
+                )}
+                {match.competicion && (
+                  <button
+                    onClick={() =>
+                      navigate("competition", match.competicion.id)
+                    }
+                  >
+                    <Icon name="trophy" />
+                    <span>
+                      <small>COMPETICIÓN</small>
+                      <strong>{match.competicion.nombre}</strong>
+                    </span>
+                    <Icon name="arrow" />
+                  </button>
+                )}
+                {match.equipo_visitante && (
+                  <button
+                    onClick={() => navigate("team", match.equipo_visitante.id)}
+                  >
+                    <Crest
+                      small
+                      src={match.equipo_visitante.logo}
+                      name={match.equipo_visitante.nombre}
+                    />
+                    <span>
+                      <small>EQUIPO VISITANTE</small>
+                      <strong>{match.equipo_visitante.nombre}</strong>
+                    </span>
+                    <Icon name="arrow" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
 
-      <section className="p-match-context">
-        <Pitch />
-        <div className="p-context-copy">
-          <span className="p-kicker">SIGUE EL HILO</span>
-          <h2>Este partido conecta.</h2>
-          <div className="p-connection-list">
-            {match.equipo_local && (
-              <button onClick={() => navigate("team", match.equipo_local.id)}>
-                <Crest
-                  small
-                  src={match.equipo_local.logo}
-                  name={match.equipo_local.nombre}
-                />
-                <span>
-                  <small>EQUIPO LOCAL</small>
-                  <strong>{match.equipo_local.nombre}</strong>
-                </span>
-                <Icon name="arrow" />
-              </button>
+          <ConnectionGraph match={match} navigate={navigate} />
+        </>
+      )}
+      {section === "summary" && (
+        <>
+          <section className="p-data-panel">
+            <div>
+              <span className="p-kicker">DATOS DISPONIBLES</span>
+              <h2>Lo que sí sabemos.</h2>
+            </div>
+            {stats ? (
+              <div className="p-stat-grid">
+                <article>
+                  <span>POSESIÓN</span>
+                  <strong>{stats.posesion_local}%</strong>
+                  <i style={{ "--value": `${stats.posesion_local}%` }} />
+                  <strong>{stats.posesion_visitante}%</strong>
+                </article>
+                <article>
+                  <span>TIROS A PUERTA</span>
+                  <strong>{stats.tiros_puerta_local}</strong>
+                  <i
+                    style={{
+                      "--value": `${Math.round(
+                        (stats.tiros_puerta_local /
+                          Math.max(
+                            1,
+                            stats.tiros_puerta_local +
+                              stats.tiros_puerta_visitante,
+                          )) *
+                          100,
+                      )}%`,
+                    }}
+                  />
+                  <strong>{stats.tiros_puerta_visitante}</strong>
+                </article>
+              </div>
+            ) : (
+              <p className="p-data-empty">
+                Este encuentro todavía no tiene estadísticas registradas. ONCE
+                prefiere dejar el espacio vacío antes que rellenarlo con datos
+                dudosos.
+              </p>
             )}
-            {match.competicion && (
-              <button
-                onClick={() => navigate("competition", match.competicion.id)}
-              >
-                <Icon name="trophy" />
-                <span>
-                  <small>COMPETICIÓN</small>
-                  <strong>{match.competicion.nombre}</strong>
-                </span>
-                <Icon name="arrow" />
-              </button>
-            )}
-            {match.equipo_visitante && (
-              <button
-                onClick={() => navigate("team", match.equipo_visitante.id)}
-              >
-                <Crest
-                  small
-                  src={match.equipo_visitante.logo}
-                  name={match.equipo_visitante.nombre}
-                />
-                <span>
-                  <small>EQUIPO VISITANTE</small>
-                  <strong>{match.equipo_visitante.nombre}</strong>
-                </span>
-                <Icon name="arrow" />
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <ConnectionGraph match={match} navigate={navigate} />
-
-      <section className="p-data-panel">
-        <div>
-          <span className="p-kicker">DATOS DISPONIBLES</span>
-          <h2>Lo que sí sabemos.</h2>
-        </div>
-        {stats ? (
-          <div className="p-stat-grid">
-            <article>
-              <span>POSESIÓN</span>
-              <strong>{stats.posesion_local}%</strong>
-              <i style={{ "--value": `${stats.posesion_local}%` }} />
-              <strong>{stats.posesion_visitante}%</strong>
-            </article>
-            <article>
-              <span>TIROS A PUERTA</span>
-              <strong>{stats.tiros_puerta_local}</strong>
-              <i
-                style={{
-                  "--value": `${Math.round(
-                    (stats.tiros_puerta_local /
-                      Math.max(
-                        1,
-                        stats.tiros_puerta_local + stats.tiros_puerta_visitante,
-                      )) *
-                      100,
-                  )}%`,
-                }}
-              />
-              <strong>{stats.tiros_puerta_visitante}</strong>
-            </article>
-          </div>
-        ) : (
-          <p className="p-data-empty">
-            Este encuentro todavía no tiene estadísticas registradas. ONCE
-            prefiere dejar el espacio vacío antes que rellenarlo con datos
-            dudosos.
+          </section>
+          <p className="once-detail-note">
+            Las estadísticas corresponden únicamente a este partido. Consulta
+            sus jugadas y jugadores en Cronología y Alineaciones.
           </p>
-        )}
-      </section>
-
-      <MatchTimeline
-        events={match.eventos}
-        players={players}
-        match={match}
-        navigate={navigate}
-      />
-      <LineupBoard
-        lineups={match.alineaciones}
-        players={players}
-        match={match}
-        navigate={navigate}
-      />
+        </>
+      )}
+      {section === "timeline" &&
+        (match.eventos?.length ? (
+          <MatchTimeline
+            events={match.eventos}
+            players={players}
+            match={match}
+            navigate={navigate}
+          />
+        ) : (
+          <EmptyPublic title="Sin jugadas registradas">
+            La cronología aparecerá cuando existan eventos de este partido.
+          </EmptyPublic>
+        ))}
+      {section === "lineups" &&
+        (match.alineaciones?.some((item) => item.titular) ? (
+          <LineupBoard
+            lineups={match.alineaciones}
+            players={players}
+            match={match}
+            navigate={navigate}
+          />
+        ) : (
+          <EmptyPublic title="Alineación por confirmar">
+            Todavía no hay titulares registrados para este partido.
+          </EmptyPublic>
+        ))}
     </main>
   );
 }
 
-function EntityDetail({ entity, kind, matches, navigate, demo }) {
+function EntityDetail({
+  entity,
+  kind,
+  matches,
+  navigate,
+  demo,
+  revision = 0,
+  matchTotal = 0,
+}) {
+  const [section, setSection] = useState("matches");
+  const seasons = [...(entity?.temporadas || [])].sort(
+    (a, b) => Number(b.activa) - Number(a.activa) || b.id - a.id,
+  );
+  const [seasonChoice, setSeasonChoice] = useState(null);
+  const season = seasonChoice ?? (seasons[0] ? String(seasons[0].id) : "");
   if (!entity) {
     return (
       <main className="p-detail" id="public-content" tabIndex={-1}>
@@ -343,10 +420,33 @@ function EntityDetail({ entity, kind, matches, navigate, demo }) {
         )
       : matches.filter((match) => match.competicion_id === entity.id);
 
+  const scopedMatches = related.filter(
+    (match) =>
+      !season ||
+      (season === "unassigned"
+        ? !match.temporada_id
+        : String(match.temporada_id) === season),
+  );
+  const selectedSeason = seasons.find((item) => String(item.id) === season);
+  const relatedCompetitions =
+    kind === "competition"
+      ? [entity]
+      : [
+          ...new Map(
+            related
+              .filter((match) => match.competicion)
+              .map((match) => [match.competicion.id, match.competicion]),
+          ).values(),
+        ];
+
   return (
     <main className="p-detail" id="public-content" tabIndex={-1}>
-      <button className="p-back" onClick={() => navigate("home")}>
-        <Icon name="arrow" /> Volver al archivo
+      <button
+        className="p-back"
+        onClick={() => navigate(kind === "team" ? "teams" : "competitions")}
+      >
+        <Icon name="arrow" />{" "}
+        {kind === "team" ? "Volver a equipos" : "Volver a competiciones"}
       </button>
       <section className="p-entity-hero">
         <Crest src={entity.logo} name={entity.nombre} />
@@ -363,10 +463,77 @@ function EntityDetail({ entity, kind, matches, navigate, demo }) {
           </p>
         </div>
       </section>
+      {kind === "competition" && seasons.length > 0 && (
+        <div className="once-detail-context">
+          <label className="once-select">
+            <span>Temporada</span>
+            <select
+              aria-label="Temporada de la competición"
+              value={season}
+              onChange={(event) => setSeasonChoice(event.target.value)}
+            >
+              {seasons.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                  {item.activa ? " · En curso" : ""}
+                </option>
+              ))}
+              <option value="unassigned">Sin temporada asignada</option>
+            </select>
+          </label>
+          <p>
+            Partidos, clasificación y fases comparten esta selección.{" "}
+            {demo
+              ? `${scopedMatches.length} de ${related.length} partidos.`
+              : "Consulta el listado para ver todos los encuentros de esta edición."}
+          </p>
+        </div>
+      )}
+      <DetailSections
+        label={
+          kind === "team"
+            ? "Secciones del equipo"
+            : "Secciones de la competición"
+        }
+        current={section}
+        onChange={setSection}
+        sections={
+          kind === "team"
+            ? [
+                ["matches", "Partidos", demo ? related.length : matchTotal],
+                ["form", "Forma reciente"],
+                ["history", "Historia"],
+                [
+                  "competitions",
+                  "Competiciones",
+                  entity.competiciones?.length || 0,
+                ],
+              ]
+            : [
+                [
+                  "matches",
+                  "Partidos",
+                  demo ? scopedMatches.length : undefined,
+                ],
+                ["standings", "Clasificación"],
+                ["history", "Historia"],
+                ["phases", "Fases"],
+                ["seasons", "Temporadas", seasons.length],
+              ]
+        }
+      />
 
-      {kind === "team" && (
+      {section === "history" && (
+        <HistoryFacts type={kind} id={entity.id} demo={demo} />
+      )}
+      {kind === "team" && section === "form" && (
         <section className="p-form-section">
           <span className="p-kicker">FORMA RECIENTE</span>
+          {!demo && (
+            <p className="once-results-count">
+              Resultados disponibles en los últimos 30 encuentros consultados.
+            </p>
+          )}
           <FormRibbon
             matches={matches}
             teamId={entity.id}
@@ -375,14 +542,13 @@ function EntityDetail({ entity, kind, matches, navigate, demo }) {
         </section>
       )}
 
-      {kind === "competition" && entity.temporadas?.length > 0 && (
-        <section className="p-season-section">
-          <span className="p-kicker">EDICIONES</span>
-          <div className="p-season-rail">
-            {entity.temporadas
-              .slice()
-              .sort((a, b) => b.id - a.id)
-              .map((season) => (
+      {kind === "competition" &&
+        section === "seasons" &&
+        (seasons.length ? (
+          <section className="p-season-section">
+            <span className="p-kicker">EDICIONES</span>
+            <div className="p-season-rail">
+              {seasons.map((season) => (
                 <article
                   key={season.id}
                   data-active={season.activa || undefined}
@@ -394,44 +560,121 @@ function EntityDetail({ entity, kind, matches, navigate, demo }) {
                       .filter(Boolean)
                       .join(" → ") || "Fechas por completar"}
                   </span>
+                  <button
+                    className="once-text-link"
+                    onClick={() => {
+                      setSeasonChoice(String(season.id));
+                      setSection("matches");
+                    }}
+                  >
+                    Ver partidos <Icon name="arrow" />
+                  </button>
                 </article>
               ))}
+            </div>
+          </section>
+        ) : (
+          <EmptyPublic title="Sin temporadas registradas">
+            Las ediciones aparecerán cuando se añadan a esta competición.
+          </EmptyPublic>
+        ))}
+
+      {kind === "competition" &&
+        section === "standings" &&
+        (demo ? (
+          <EmptyPublic title="Clasificación no incluida en la demo">
+            Esta vista se calcula con los resultados guardados en tu
+            instalación.
+          </EmptyPublic>
+        ) : season === "unassigned" ? (
+          <EmptyPublic title="Elige una temporada para ver la tabla">
+            Los partidos sin temporada permanecen separados para no mezclar
+            resultados de distintas ediciones.
+          </EmptyPublic>
+        ) : (
+          <StandingsTable competition={entity} season={selectedSeason} />
+        ))}
+      {kind === "competition" &&
+        section === "phases" &&
+        (scopedMatches.some((match) => match.fase?.id) ? (
+          <>
+            <p className="once-results-count">
+              {demo
+                ? ""
+                : "Vista de los últimos 30 partidos. El listado permite recorrer el archivo completo."}
+            </p>
+            <CompetitionFlow matches={scopedMatches} navigate={navigate} />
+          </>
+        ) : (
+          <EmptyPublic title="Sin fases con partidos">
+            Las fases aparecerán cuando haya encuentros asociados en esta
+            selección.
+          </EmptyPublic>
+        ))}
+      {kind === "team" && section === "competitions" && (
+        <section className="p-section">
+          <div className="p-section-head">
+            <h2>Competiciones del equipo.</h2>
           </div>
+          {entity.competiciones?.length ? (
+            <div className="p-connection-list">
+              {entity.competiciones.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => navigate("competition", item.id)}
+                >
+                  <Crest small src={item.logo} name={item.nombre} />
+                  <span>
+                    <small>COMPETICIÓN</small>
+                    <strong>{item.nombre}</strong>
+                  </span>
+                  <Icon name="arrow" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyPublic title="Sin competiciones vinculadas">
+              Este equipo todavía no tiene competiciones asociadas en el
+              catálogo.
+            </EmptyPublic>
+          )}
         </section>
       )}
-
-      {kind === "competition" && (
-        <>
-          {!demo && <StandingsTable competition={entity} />}
-          <CompetitionFlow matches={related} navigate={navigate} />
-        </>
+      {section === "matches" && (
+        <MatchExplorer
+          key={season}
+          matches={scopedMatches}
+          competitions={relatedCompetitions}
+          navigate={navigate}
+          embedded
+          server={!demo}
+          revision={revision}
+          scope={{
+            ...(kind === "team"
+              ? { team_id: entity.id }
+              : { competition_id: entity.id }),
+            ...(season ? { season_id: season } : {}),
+          }}
+          heading={
+            kind === "team"
+              ? "Los partidos del equipo."
+              : "Los partidos de la competición."
+          }
+        />
       )}
-
-      <section className="p-section">
-        <div className="p-section-head">
-          <div>
-            <span className="p-kicker">PARTIDOS RELACIONADOS</span>
-            <h2>El contexto disponible.</h2>
-          </div>
-          <span>{related.length}</span>
-        </div>
-        {related.length ? (
-          <div className="p-match-list">
-            {related.map((match) => (
-              <MatchCard key={match.id} match={match} navigate={navigate} />
-            ))}
-          </div>
-        ) : (
-          <EmptyPublic title="Sin encuentros relacionados">
-            Todavía no hay partidos conectados con este registro.
-          </EmptyPublic>
-        )}
-      </section>
     </main>
   );
 }
 
-function PlayerDetail({ player, matches, navigate }) {
+function PlayerDetail({
+  player,
+  matches,
+  navigate,
+  demo = false,
+  summary,
+  revision = 0,
+}) {
+  const [section, setSection] = useState("appearances");
   if (!player) {
     return (
       <main className="p-detail" id="public-content" tabIndex={-1}>
@@ -479,37 +722,121 @@ function PlayerDetail({ player, matches, navigate }) {
         </div>
       </section>
 
-      <section className="p-player-facts">
-        <article>
-          <small>PARTIDOS EN ARCHIVO</small>
-          <strong>{appearances.length}</strong>
-        </article>
-        <article>
-          <small>EVENTOS REGISTRADOS</small>
-          <strong>{events.length}</strong>
-        </article>
-      </section>
-
-      <section className="p-section">
-        <div className="p-section-head">
-          <div>
-            <span className="p-kicker">APARICIONES</span>
-            <h2>Partidos conectados.</h2>
-          </div>
-          <span>{appearances.length}</span>
-        </div>
-        {appearances.length ? (
-          <div className="p-match-list">
-            {appearances.map((match) => (
-              <MatchCard key={match.id} match={match} navigate={navigate} />
+      {!demo ? (
+        <>
+          <section className="p-player-facts">
+            {[
+              [summary?.appearances ?? 0, "APARICIONES REGISTRADAS"],
+              [summary?.goals ?? 0, "GOLES REGISTRADOS"],
+              [summary?.assists ?? 0, "ASISTENCIAS REGISTRADAS"],
+            ].map(([count, label]) => (
+              <article key={label}>
+                <small>{label}</small>
+                <strong>{count}</strong>
+              </article>
             ))}
-          </div>
-        ) : (
-          <EmptyPublic title="Sin apariciones registradas">
-            La profundidad está disponible cuando los datos también lo están.
-          </EmptyPublic>
-        )}
-      </section>
+          </section>
+          <p className="once-results-count">
+            Cifras de los partidos y eventos guardados en ONCE. No representan
+            una trayectoria completa si la fuente está incompleta.
+          </p>
+          <MatchExplorer
+            matches={matches}
+            competitions={[]}
+            navigate={navigate}
+            embedded
+            server
+            scope={{ player_id: player.id }}
+            revision={revision}
+            heading="Partidos conectados."
+          />
+        </>
+      ) : (
+        <>
+          <section className="p-player-facts">
+            <article>
+              <small>PARTIDOS EN ARCHIVO</small>
+              <strong>{appearances.length}</strong>
+            </article>
+            <article>
+              <small>EVENTOS REGISTRADOS</small>
+              <strong>{events.length}</strong>
+            </article>
+          </section>
+          <DetailSections
+            label="Secciones del jugador"
+            current={section}
+            onChange={setSection}
+            sections={[
+              ["appearances", "Apariciones", appearances.length],
+              ["events", "Jugadas", events.length],
+            ]}
+          />
+          {section === "appearances" && (
+            <section className="p-section">
+              <div className="p-section-head">
+                <div>
+                  <span className="p-kicker">APARICIONES</span>
+                  <h2>Partidos conectados.</h2>
+                </div>
+                <span>{appearances.length}</span>
+              </div>
+              {appearances.length ? (
+                <div className="p-match-list">
+                  {appearances.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      navigate={navigate}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyPublic title="Sin apariciones registradas">
+                  La profundidad está disponible cuando los datos también lo
+                  están.
+                </EmptyPublic>
+              )}
+            </section>
+          )}
+          {section === "events" && (
+            <section className="p-section">
+              <div className="p-section-head">
+                <h2>Jugadas del jugador.</h2>
+              </div>
+              {events.length ? (
+                <div className="once-player-events">
+                  {events.map((event) => (
+                    <button
+                      key={`${event.match.id}-${event.id}`}
+                      onClick={() => navigate("match", event.match.id)}
+                    >
+                      <span>
+                        <small>
+                          {event.match.equipo_local?.nombre} ·{" "}
+                          {event.match.equipo_visitante?.nombre}
+                        </small>
+                        <strong>
+                          {event.minuto}′ ·{" "}
+                          {event.asistente_id === player.id
+                            ? "Asistencia"
+                            : event.tipo}
+                        </strong>
+                      </span>
+                      <Icon name="arrow" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <EmptyPublic title="Sin jugadas registradas">
+                  Las acciones aparecerán cuando este jugador figure en los
+                  eventos de un partido.
+                </EmptyPublic>
+              )}
+            </section>
+          )}
+        </>
+      )}
     </main>
   );
 }
@@ -526,6 +853,9 @@ export default function PublicApp() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [totals, setTotals] = useState({});
+  const [playerSummary, setPlayerSummary] = useState(null);
+  const live = useLiveUpdates(!demo);
 
   useEffect(() => {
     let current = true;
@@ -536,23 +866,80 @@ export default function PublicApp() {
           d.competitions,
           d.teams,
           d.players,
+          { matches: d.matches.length, teams: d.teams.length },
         ])
-      : Promise.all([
-          apiCollection("/public/partidos/", { signal: controller.signal }),
-          apiCollection("/public/competiciones/", {
-            signal: controller.signal,
-          }),
-          apiCollection("/public/equipos/", { signal: controller.signal }),
-          apiCollection("/public/jugadores/", { signal: controller.signal }),
-        ]);
+      : (async () => {
+          const options = { signal: controller.signal };
+          const matchQuery = new URLSearchParams({
+            page: "1",
+            page_size: route.type === "home" ? "6" : "30",
+            sort: "newest",
+          });
+          if (route.type === "team") matchQuery.set("team_id", route.id);
+          if (route.type === "competition")
+            matchQuery.set("competition_id", route.id);
+          if (route.type === "player") matchQuery.set("player_id", route.id);
+          const [matchResult, competitionData, teamResult, playerData] =
+            await Promise.all([
+              route.type === "match"
+                ? apiRequest(`/public/partidos/${route.id}`, options).then(
+                    (match) => ({ items: [match], total: 1 }),
+                  )
+                : ["home", "team", "competition", "player"].includes(route.type)
+                  ? apiRequest(`/public/partidos/page?${matchQuery}`, options)
+                  : Promise.resolve({ items: [], total: 0 }),
+              apiCollection("/public/competiciones/", {
+                signal: controller.signal,
+              }),
+              route.type === "team"
+                ? apiRequest(`/public/equipos/${route.id}`, options).then(
+                    (team) => ({ items: [team], total: 1 }),
+                  )
+                : route.type === "home"
+                  ? apiRequest(
+                      "/public/equipos/page?page=1&page_size=6",
+                      options,
+                    )
+                  : Promise.resolve({ items: [], total: 0 }),
+              route.type === "player"
+                ? Promise.all([
+                    apiRequest(`/public/jugadores/${route.id}`, options),
+                    apiRequest(
+                      `/public/jugadores/${route.id}/summary`,
+                      options,
+                    ),
+                  ])
+                : Promise.resolve([]),
+            ]);
+          return [
+            matchResult.items,
+            competitionData,
+            teamResult.items,
+            playerData.length ? [playerData[0]] : [],
+            { matches: matchResult.total, teams: teamResult.total },
+            playerData[1] || null,
+          ];
+        })();
     request
-      .then(([matchData, competitionData, teamData, playerData]) => {
-        if (!current) return;
-        setMatches(matchData);
-        setCompetitions(competitionData);
-        setTeams(teamData);
-        setPlayers(playerData);
-      })
+      .then(
+        ([
+          matchData,
+          competitionData,
+          teamData,
+          playerData,
+          counts,
+          summary,
+        ]) => {
+          if (!current) return;
+          setMatches(matchData);
+          setCompetitions(competitionData);
+          setTeams(teamData);
+          setPlayers(playerData);
+          setTotals(counts || {});
+          setPlayerSummary(summary);
+          setLoadError("");
+        },
+      )
       .catch(() => {
         if (current)
           setLoadError(
@@ -566,7 +953,7 @@ export default function PublicApp() {
       current = false;
       controller.abort();
     };
-  }, [demo, attempt]);
+  }, [demo, attempt, route.type, route.id, live.revision]);
 
   useEffect(() => {
     const titles = {
@@ -596,6 +983,7 @@ export default function PublicApp() {
     if (path === window.location.pathname) return;
     window.history.pushState({}, "", `${path}${demo ? "?demo=1" : ""}`);
     runViewTransition(() => setRoute(routeFromPath(path)));
+    if (!demo) setLoading(true);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
 
@@ -657,6 +1045,20 @@ export default function PublicApp() {
       demo={demo}
       searchData={{ teams, competitions, players, matches }}
     >
+      {!demo && (
+        <div className="once-live-status" role="status">
+          <i data-connected={live.connected || undefined} />
+          {live.connected
+            ? "Conectado a tu archivo local"
+            : "Actualizaciones de pantalla desconectadas"}
+          <span>
+            La frescura de cada dato depende de su fuente.
+            {live.checkedAt
+              ? ` Último cambio recibido: ${live.checkedAt.toLocaleTimeString("es-CO")}.`
+              : ""}
+          </span>
+        </div>
+      )}
       {route.type === "home" && (
         <ExploreHome
           matches={matches}
@@ -664,6 +1066,8 @@ export default function PublicApp() {
           teams={teams}
           navigate={navigate}
           demo={demo}
+          totals={totals}
+          revision={live.revision}
         />
       )}
       {route.type === "matches" && (
@@ -673,6 +1077,8 @@ export default function PublicApp() {
             competitions={competitions}
             navigate={navigate}
             full
+            server={!demo}
+            revision={live.revision}
           />
         </main>
       )}
@@ -682,6 +1088,8 @@ export default function PublicApp() {
             key="teams"
             kind="team"
             entities={teams}
+            server={!demo}
+            revision={live.revision}
             navigate={navigate}
           />
         </main>
@@ -698,6 +1106,7 @@ export default function PublicApp() {
       )}
       {route.type === "match" && (
         <MatchDetail
+          key={route.id}
           match={matches.find((item) => item.id === route.id)}
           players={players}
           navigate={navigate}
@@ -705,15 +1114,26 @@ export default function PublicApp() {
       )}
       {(route.type === "team" || route.type === "competition") && (
         <EntityDetail
+          key={`${route.type}-${route.id}`}
           demo={demo}
           entity={selected}
           kind={route.type}
           matches={matches}
           navigate={navigate}
+          revision={live.revision}
+          matchTotal={totals.matches}
         />
       )}
       {route.type === "player" && (
-        <PlayerDetail player={selected} matches={matches} navigate={navigate} />
+        <PlayerDetail
+          key={route.id}
+          player={selected}
+          matches={matches}
+          navigate={navigate}
+          demo={demo}
+          summary={playerSummary}
+          revision={live.revision}
+        />
       )}
     </PublicShell>
   );

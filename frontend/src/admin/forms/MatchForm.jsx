@@ -222,10 +222,19 @@ export function MatchForm({
             <option value="programado">Programado</option>
             <option value="en vivo">En vivo</option>
             <option value="finalizado">Finalizado</option>
+            <option value="aplazado">Aplazado</option>
+            <option value="suspendido">Suspendido</option>
+            <option value="cancelado">Cancelado</option>
+            <option value="abandonado">Abandonado</option>
+            <option value="adjudicado">Adjudicado</option>
+            <option value="desconocido">Por confirmar</option>
           </select>
         </Field>
         <div className="v-form-grid">
-          <Field label="Goles local">
+          <Field
+            label="Goles local"
+            hint="Déjalo vacío si el marcador todavía no se conoce."
+          >
             <input
               type="number"
               min="0"
@@ -236,10 +245,12 @@ export function MatchForm({
                   marcador_local: e.target.value,
                 })
               }
-              required
             />
           </Field>
-          <Field label="Goles visitante">
+          <Field
+            label="Goles visitante"
+            hint="Un cero indica un marcador confirmado."
+          >
             <input
               type="number"
               min="0"
@@ -250,7 +261,6 @@ export function MatchForm({
                   marcador_visitante: e.target.value,
                 })
               }
-              required
             />
           </Field>
         </div>

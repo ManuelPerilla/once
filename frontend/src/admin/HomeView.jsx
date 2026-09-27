@@ -1,4 +1,3 @@
-import { ProviderConsole } from "./ProviderConsole";
 import { MatchRow } from "../components/football/MatchRow";
 import { Crest } from "../components/ui/Crest";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -14,19 +13,20 @@ export function HomeView({
   setMatchFilter,
   changeSection,
   openCreate,
-  onCatalogImported,
+  goData,
+  counts = {},
 }) {
   const metrics = [
     {
       title: "Competiciones",
-      value: competitions.length,
+      value: counts.competitions ?? competitions.length,
       caption: "Ligas y copas en tu catálogo",
       icon: "trophy",
       action: () => goCatalog("competiciones"),
     },
     {
       title: "Equipos",
-      value: teams.length,
+      value: counts.teams ?? teams.length,
       caption: "Clubes y selecciones",
       icon: "shield",
       action: () => goCatalog("equipos"),
@@ -186,7 +186,7 @@ export function HomeView({
                 </button>
               )}
 
-              {!competitions.length && (
+              {!(counts.competitions ?? competitions.length) && (
                 <button
                   className="v-attention"
                   onClick={() => {
@@ -207,7 +207,7 @@ export function HomeView({
                 </button>
               )}
 
-              {!teams.length && (
+              {!(counts.teams ?? teams.length) && (
                 <button
                   className="v-attention"
                   onClick={() => {
@@ -276,7 +276,55 @@ export function HomeView({
         </div>
       )}
 
-      <ProviderConsole onImported={onCatalogImported} />
+      <section
+        className="once-module-directory v-panel"
+        aria-labelledby="directory-title"
+      >
+        <div className="v-panel-head">
+          <div>
+            <span className="v-eyebrow">CADA TAREA EN SU LUGAR</span>
+            <h2 id="directory-title">Elige dónde trabajar.</h2>
+            <p>
+              Las relaciones conectan las secciones; cada una conserva su propio
+              propósito.
+            </p>
+          </div>
+        </div>
+        <div className="once-directory-grid">
+          <button onClick={() => goCatalog("competiciones")}>
+            <Icon name="grid" />
+            <strong>Catálogo</strong>
+            <span>
+              Confederaciones, torneos, equipos, temporadas, fases, estadios y
+              jugadores.
+            </span>
+          </button>
+          <button onClick={() => goEnrollments()}>
+            <Icon name="link" />
+            <strong>Participación</strong>
+            <span>
+              Matrículas de equipos en competiciones. No equivalen a una
+              plantilla de jugadores.
+            </span>
+          </button>
+          <button onClick={() => changeSection("arena")}>
+            <Icon name="pitch" />
+            <strong>Partidos y sus detalles</strong>
+            <span>
+              Calendario, resultados, estadísticas, eventos y alineaciones por
+              encuentro.
+            </span>
+          </button>
+          <button onClick={goData}>
+            <Icon name="globe" />
+            <strong>Fuentes y control de datos</strong>
+            <span>
+              Importaciones, escudos, conexiones, procedencia e información por
+              revisar.
+            </span>
+          </button>
+        </div>
+      </section>
 
       <div className="v-quick-actions">
         <button

@@ -22,7 +22,7 @@ def broken_links(document):
 
 def main():
     documents = [
-        ROOT / "README.md",
+        *ROOT.glob("*.md"),
         ROOT / "frontend/README.md",
         *ROOT.joinpath("docs").rglob("*.md"),
     ]

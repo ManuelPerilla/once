@@ -1,0 +1,205 @@
+.once-context-panel {
+  padding: clamp(18px, 3vw, 32px);
+}
+.once-context-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.once-context-heading h2 {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 34px);
+}
+.once-context-heading p {
+  max-width: 64ch;
+  color: var(--muted);
+  margin: 10px 0 0;
+  font-size: 16px;
+}
+.once-context-heading > .v-btn {
+  flex-shrink: 0;
+}
+.once-context-filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.2fr) repeat(2, minmax(150px, 1fr));
+  gap: 16px;
+  margin: 28px 0 0;
+}
+.once-context-filters .v-field {
+  min-width: 0;
+}
+.once-context-filters input,
+.once-context-filters select,
+.once-context-form input,
+.once-context-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  font-size: 16px;
+}
+.once-context-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.once-context-records {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.once-context-record {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+  background: var(--paper);
+  min-width: 0;
+}
+.once-context-record-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.once-context-record h3 {
+  margin: 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.once-context-badge {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--soft);
+  white-space: nowrap;
+}
+.once-context-badge.is-active {
+  color: var(--ink);
+  background: var(--accent);
+}
+.once-context-record dl {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+.once-context-record dl > div {
+  display: grid;
+  grid-template-columns: minmax(85px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.once-context-record dt {
+  color: var(--muted);
+  font-size: 14px;
+}
+.once-context-record dd {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.once-context-fullname {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.once-context-form fieldset {
+  display: grid;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.once-context-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+}
+.once-context-checkbox input {
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.once-context-optional {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.once-context-optional summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.once-context-optional p,
+.once-context-help {
+  color: var(--muted);
+  font-size: 14px;
+}
+.once-context-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.once-context-error,
+.once-context-success {
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.once-context-error {
+  background: #fff0ee;
+  color: #8d251e;
+}
+.once-context-success {
+  background: #ecf7d9;
+  color: #264914;
+}
+@media (max-width: 1100px) {
+  .once-context-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .once-context-filters > :first-child {
+    grid-column: 1 / -1;
+  }
+  .once-context-records {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .once-context-heading {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .once-context-heading > .v-btn {
+    width: 100%;
+  }
+  .once-context-filters {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .once-context-summary {
+    flex-wrap: wrap;
+    padding: 8px 0;
+  }
+  .once-context-record {
+    padding: 18px;
+  }
+  .once-context-record dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .once-context-actions > .v-btn {
+    flex: 1;
+  }
+}

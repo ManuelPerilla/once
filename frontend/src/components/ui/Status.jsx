@@ -4,6 +4,12 @@ export function Status({ value }) {
       programado: "Programado",
       "en vivo": "En vivo",
       finalizado: "Finalizado",
+      aplazado: "Aplazado",
+      suspendido: "Suspendido",
+      cancelado: "Cancelado",
+      abandonado: "Abandonado",
+      adjudicado: "Adjudicado",
+      desconocido: "Por confirmar",
     }[value] || value;
 
   return (

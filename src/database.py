@@ -18,7 +18,18 @@ if not URL_BASE_DATOS:
         database=os.getenv("POSTGRES_DB", "vertice_db"),
     )
 
-engine = create_engine(URL_BASE_DATOS)
+pool_options = (
+    {}
+    if str(URL_BASE_DATOS).startswith("sqlite")
+    else {
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "5")),
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "3")),
+        "pool_timeout": 10,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    }
+)
+engine = create_engine(URL_BASE_DATOS, **pool_options)
 
 
 def crear_tablas_db():

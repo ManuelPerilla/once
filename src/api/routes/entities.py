@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from src.api.dependencies import get_session, verificar_token
-from src.api.persistence import save
+from src.api.persistence import audit_pending, save
 from src.football.queries import teams_query
 from src.football.rules import normalizar_competicion, validar_compatibilidad
 from src.models import (
@@ -16,6 +16,8 @@ from src.models import (
     EquipoBase,
     EquipoConCompeticionesRead,
     EquipoRead,
+    ParticipacionTemporada,
+    Temporada,
     TipoEquipo,
 )
 
@@ -57,6 +59,7 @@ def eliminar_confederacion(id: int, session: Session = Depends(get_session)):
         e.confederacion_id = None
 
     session.delete(conf)
+    audit_pending(session)
     session.commit()
     return {"ok": True, "mensaje": "Confederación eliminada. Datos asociados intactos y huérfanos."}
 
@@ -95,11 +98,17 @@ def eliminar_competicion(id: int, session: Session = Depends(get_session)):
     comp = session.get(Competicion, id)
     if not comp:
         raise HTTPException(status_code=404, detail="Competición no encontrada")
+    if session.exec(select(Temporada.id).where(Temporada.competicion_id == id).limit(1)).first():
+        raise HTTPException(
+            status_code=409,
+            detail="Esta competición tiene ediciones e historial. Corrige su ficha en lugar de eliminarla.",
+        )
 
     for p in comp.partidos:
         p.competicion_id = None
 
     session.delete(comp)
+    audit_pending(session)
     session.commit()
     return {"ok": True, "mensaje": "Competición eliminada."}
 
@@ -140,6 +149,15 @@ def eliminar_equipo(id: int, session: Session = Depends(get_session)):
     eq = session.get(Equipo, id)
     if not eq:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if session.exec(
+        select(ParticipacionTemporada.equipo_id)
+        .where(ParticipacionTemporada.equipo_id == id)
+        .limit(1)
+    ).first():
+        raise HTTPException(
+            status_code=409,
+            detail="Este equipo participa en ediciones con historial. Corrige su ficha en lugar de eliminarla.",
+        )
 
     for p in eq.partidos_local:
         p.equipo_local_id = None
@@ -147,6 +165,7 @@ def eliminar_equipo(id: int, session: Session = Depends(get_session)):
         p.equipo_visitante_id = None
 
     session.delete(eq)
+    audit_pending(session)
     session.commit()
     return {"ok": True, "mensaje": "Equipo eliminado."}
 
@@ -167,6 +186,7 @@ def matricular_equipo(equipo_id: int, competicion_id: int, session: Session = De
 
     equipo.competiciones.append(competicion)
     session.add(equipo)
+    audit_pending(session)
     session.commit()
     return {
         "ok": True,

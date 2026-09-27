@@ -1,9 +1,9 @@
 :root {
   --ink: #101d36;
-  --muted: #647083;
-  --line: #dce1e8;
-  --paper: #f7f8fa;
-  --soft: #edf0f5;
+  --muted: #53647a;
+  --line: #dce4ed;
+  --paper: #f3f6fa;
+  --soft: #eaf0f6;
   --orange: #c4f45b;
   --accent: #c4f45b;
   --navy: #101d36;
@@ -12,6 +12,13 @@
   --display: "Barlow Condensed", Impact, sans-serif;
   --body: "DM Sans", system-ui, sans-serif;
 
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+  --shadow-soft: 0 8px 32px #142d4d08, 0 1px 3px #142d4d05;
+  --shadow-float: 0 18px 48px #101d361c, 0 3px 10px #101d360a;
+
   --motion-fast: 140ms;
   --motion-base: 220ms;
   --motion-slow: 420ms;
@@ -19,6 +26,8 @@
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 
   font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;

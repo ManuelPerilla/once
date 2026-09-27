@@ -11,7 +11,7 @@ import { ConfederationForm } from "./forms/ConfederationForm";
 import { CompetitionForm } from "./forms/CompetitionForm";
 import { TeamForm } from "./forms/TeamForm";
 import { MatchForm } from "./forms/MatchForm";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../api";
 import { runViewTransition } from "../lib/viewTransition";
 import {
@@ -27,7 +27,18 @@ import { EnrollmentView } from "./EnrollmentView";
 import { MatchesView } from "./MatchesView";
 import { CatalogView } from "./CatalogView";
 import { HomeView } from "./HomeView";
+import { ModuleTabs } from "./ModuleTabs";
+import { catalogModules } from "./catalogModules";
+import { ContextView } from "./context/ContextView";
+import { DataWorkspace } from "./DataWorkspace";
+import { RostersView } from "./RostersView";
+import {
+  EMPTY_MATCH_FILTERS,
+  changeMatchContext,
+  filterEnrollments,
+} from "./organization";
 import { Brand, Icon, SectionArt } from "../AdminUI";
+import { CrestCredits } from "../components/ui/CrestCredits";
 
 export function AdminWorkspace({ data, notice }) {
   const {
@@ -53,13 +64,28 @@ export function AdminWorkspace({ data, notice }) {
     await data.logout();
   };
   const [activeTab, setActiveTab] = useState("inicio");
-  const changeSection = (nextTab) =>
-    runViewTransition(() => setActiveTab(nextTab));
+  const changeSection = (nextTab) => {
+    if (nextTab === activeTab) return;
+    runViewTransition(() => {
+      setActiveTab(nextTab);
+      window.scrollTo({ top: 0, behavior: "instant" });
+      document
+        .getElementById("workspace-content")
+        ?.focus({ preventScroll: true });
+    });
+  };
 
   const [catalogTab, setCatalogTab] = useState("competiciones");
   const [matchFilter, setMatchFilter] = useState("");
+  const [matchContext, setMatchContext] = useState({ ...EMPTY_MATCH_FILTERS });
+  const [enrollmentContext, setEnrollmentContext] = useState({
+    competition: "",
+    type: "",
+  });
+  const [dataVisited, setDataVisited] = useState(false);
   const [onlyFree, setOnlyFree] = useState(false);
   const [enrollmentSearch, setEnrollmentSearch] = useState("");
+  const [enrollmentMode, setEnrollmentMode] = useState("registry");
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -80,14 +106,23 @@ export function AdminWorkspace({ data, notice }) {
   });
   const [formPartido, setFormPartido] = useState(emptyMatch());
 
-  const [catalogFilters, setCatalogFilters] = useState({ ...EMPTY_FILTERS });
+  const [filtersByModule, setFiltersByModule] = useState({});
+  const catalogFilters = filtersByModule[catalogTab] || EMPTY_FILTERS;
+  const setCatalogFilters = (value) =>
+    setFiltersByModule((current) => ({
+      ...current,
+      [catalogTab]:
+        typeof value === "function"
+          ? value(current[catalogTab] || EMPTY_FILTERS)
+          : value,
+    }));
   const [showConfForm, setShowConfForm] = useState(false);
   const [showCompForm, setShowCompForm] = useState(false);
   const [showTeamForm, setShowTeamForm] = useState(false);
   const catalog = filterCatalog(competiciones, equipos, catalogFilters);
   const countries = countryOptions(
-    competiciones,
-    equipos,
+    catalogTab === "competiciones" ? competiciones : [],
+    catalogTab === "equipos" ? equipos : [],
     catalogFilters.confederation,
   );
   const updateFilter = (field, value) =>
@@ -261,8 +296,14 @@ export function AdminWorkspace({ data, notice }) {
           jornada: formPartido.jornada.trim() || null,
           equipo_local_id: parseInt(formPartido.equipo_local_id),
           equipo_visitante_id: parseInt(formPartido.equipo_visitante_id),
-          marcador_local: parseInt(formPartido.marcador_local),
-          marcador_visitante: parseInt(formPartido.marcador_visitante),
+          marcador_local:
+            formPartido.marcador_local === ""
+              ? null
+              : Number(formPartido.marcador_local),
+          marcador_visitante:
+            formPartido.marcador_visitante === ""
+              ? null
+              : Number(formPartido.marcador_visitante),
           estado: formPartido.estado,
         },
       });
@@ -308,8 +349,19 @@ export function AdminWorkspace({ data, notice }) {
     ),
   );
 
-  const summary = summarizeAdmin(competiciones, equipos, partidos);
-  const ready = catalogsReady && matchesReady;
+  const localSummary = summarizeAdmin(competiciones, equipos, partidos);
+  const summary = {
+    ...localSummary,
+    ...Object.fromEntries(
+      ["scheduled", "live", "finished", "incomplete", "unregistered"].map(
+        (key) => [
+          key,
+          { length: data.counts[key] ?? localSummary[key].length },
+        ],
+      ),
+    ),
+  };
+  const ready = matchesReady;
   const section = workspaceSections[activeTab];
   const closeForms = () => {
     setMensajeApi(null);
@@ -341,20 +393,21 @@ export function AdminWorkspace({ data, notice }) {
     }
   };
   const goCatalog = (type) => {
-    clearFilters();
     setCatalogTab(type);
     changeSection("ecosistema");
   };
   const goEnrollments = (freeOnly = false) => {
     setOnlyFree(freeOnly);
     setEnrollmentSearch("");
+    setEnrollmentContext({ competition: "", type: "" });
+    setEnrollmentMode("registry");
     changeSection("matriculas");
   };
   const heroAction = () => {
     if (activeTab === "inicio") goCatalog("competiciones");
     else if (activeTab === "ecosistema") openCreate(catalogTab);
     else if (activeTab === "arena") openCreate("partidos");
-    else document.getElementById("matricula-competition")?.focus();
+    else setEnrollmentMode("create");
   };
   const formOpen =
     showConfForm ||
@@ -362,6 +415,19 @@ export function AdminWorkspace({ data, notice }) {
     showTeamForm ||
     showMatchForm ||
     Boolean(pendingDelete);
+  const catalogsRequested = useRef(false);
+  useEffect(() => {
+    if (
+      (!["inicio", "datos"].includes(activeTab) || formOpen) &&
+      !catalogsReady &&
+      !catalogsRequested.current
+    ) {
+      catalogsRequested.current = true;
+      fetchCatalogs().finally(() => {
+        catalogsRequested.current = false;
+      });
+    }
+  }, [activeTab, formOpen, catalogsReady, fetchCatalogs]);
   const catalogItems =
     catalogTab === "confederaciones"
       ? confederaciones.filter((c) =>
@@ -376,18 +442,14 @@ export function AdminWorkspace({ data, notice }) {
       : catalogTab === "competiciones"
         ? competiciones.length
         : equipos.length;
-  const enrollmentItems = equipos.filter(
-    (eq) =>
-      (!onlyFree || !eq.competiciones?.length) &&
-      normalize(eq.nombre).includes(normalize(enrollmentSearch)),
+  const enrollmentItems = filterEnrollments(equipos, {
+    ...enrollmentContext,
+    search: enrollmentSearch,
+    state: onlyFree ? "free" : "",
+  });
+  const selectedCatalogModule = catalogModules.find(
+    (item) => item.id === catalogTab,
   );
-  const matchItems = [...partidos]
-    .filter((p) =>
-      matchFilter === "incompletos"
-        ? summary.incomplete.some((item) => item.id === p.id)
-        : !matchFilter || p.estado === matchFilter,
-    )
-    .sort((a, b) => b.id - a.id);
   const toast = mensajeApi && (
     <div
       role={mensajeApi.tipo === "error" ? "alert" : "status"}
@@ -415,7 +477,7 @@ export function AdminWorkspace({ data, notice }) {
             </a>
             <span className="v-admin-tag">
               <i />
-              Administración
+              {data.username || "Administración"}
             </span>
             <button
               className="v-icon-btn"
@@ -434,7 +496,9 @@ export function AdminWorkspace({ data, notice }) {
               onClick={handleLogout}
               aria-label="Salir de la sesión"
             >
-              <span className="v-avatar">AD</span>
+              <span className="v-avatar">
+                {(data.username || "AD").slice(0, 2).toUpperCase()}
+              </span>
               <span>Salir</span>
               <Icon name="logout" />
             </button>
@@ -449,7 +513,10 @@ export function AdminWorkspace({ data, notice }) {
               key={tab}
               aria-label={workspaceSections[tab].label}
               aria-current={activeTab === tab ? "page" : undefined}
-              onClick={() => changeSection(tab)}
+              onClick={() => {
+                if (tab === "datos") setDataVisited(true);
+                changeSection(tab);
+              }}
             >
               <Icon
                 name={
@@ -458,6 +525,7 @@ export function AdminWorkspace({ data, notice }) {
                     ecosistema: "grid",
                     matriculas: "link",
                     arena: "pitch",
+                    datos: "globe",
                   }[tab]
                 }
               />
@@ -467,9 +535,16 @@ export function AdminWorkspace({ data, notice }) {
           ))}
         </nav>
         <span className="v-nav-caption">
-          ONCE / EDICIÓN LOCAL
-          <br />
-          <strong>EL JUEGO ESTÁ EN TUS MANOS.</strong>
+          <Icon name="sparkles" />
+          <span>Tu espacio ONCE</span>
+          <strong>
+            El juego está
+            <br />
+            en tus manos.
+          </strong>
+          <a href="/explore">
+            Ver la experiencia pública <Icon name="arrow" />
+          </a>
         </span>
       </div>
       <main
@@ -498,6 +573,8 @@ export function AdminWorkspace({ data, notice }) {
                       matriculas:
                         "Gestiona quién participa en cada competición.",
                       arena: "Todos tus encuentros, organizados.",
+                      datos:
+                        "Trae información, revisa su procedencia y comprueba su calidad.",
                     }[activeTab]}
               </p>
             </div>
@@ -511,26 +588,37 @@ export function AdminWorkspace({ data, notice }) {
               </span>
             )}
           </div>
-          <section
-            className="v-hero"
-            aria-label={`Presentación de ${section.label}`}
-          >
-            <div className="v-hero-copy">
-              <span className="v-eyebrow">{section.eyebrow}</span>
-              <h2>{section.title}</h2>
-              <p>{section.description}</p>
-              <button className="v-btn v-btn-primary" onClick={heroAction}>
-                {section.action}
-                <Icon name={section.icon === "grid" ? "arrow" : section.icon} />
-              </button>
-            </div>
-            <SectionArt variant={activeTab} />
-            <div className="v-hero-baseline" aria-hidden="true">
-              <span>ONCE / OPERACIONES</span>
-              <span>EL FÚTBOL SE EXPLORA. AQUÍ SE ORGANIZA.</span>
-              <Icon name="globe" />
-            </div>
-          </section>
+          {activeTab !== "datos" && (
+            <section
+              className="v-hero"
+              aria-label={`Presentación de ${section.label}`}
+            >
+              <div className="v-hero-copy">
+                <span className="v-eyebrow">{section.eyebrow}</span>
+                <h2>{section.title}</h2>
+                <p>{section.description}</p>
+                {!(
+                  activeTab === "ecosistema" &&
+                  !["competiciones", "equipos", "confederaciones"].includes(
+                    catalogTab,
+                  )
+                ) && (
+                  <button className="v-btn v-btn-primary" onClick={heroAction}>
+                    {section.action}
+                    <Icon
+                      name={section.icon === "grid" ? "arrow" : section.icon}
+                    />
+                  </button>
+                )}
+              </div>
+              <SectionArt variant={activeTab} />
+              <div className="v-hero-baseline" aria-hidden="true">
+                <span>ONCE / OPERACIONES</span>
+                <span>EL FÚTBOL SE EXPLORA. AQUÍ SE ORGANIZA.</span>
+                <Icon name="globe" />
+              </div>
+            </section>
+          )}
 
           {activeTab === "inicio" && (
             <HomeView
@@ -538,40 +626,101 @@ export function AdminWorkspace({ data, notice }) {
               competitions={competiciones}
               teams={equipos}
               summary={summary}
+              counts={data.counts}
               goCatalog={goCatalog}
               goEnrollments={goEnrollments}
-              setMatchFilter={setMatchFilter}
+              setMatchFilter={(value) => {
+                setMatchFilter(value);
+                setMatchContext({ ...EMPTY_MATCH_FILTERS });
+              }}
               changeSection={changeSection}
               openCreate={openCreate}
-              onCatalogImported={fetchCatalogs}
+              goData={() => {
+                setDataVisited(true);
+                changeSection("datos");
+              }}
             />
           )}
 
           {activeTab === "ecosistema" && (
-            <CatalogView
-              catalogTab={catalogTab}
-              setCatalogTab={setCatalogTab}
-              catalogsReady={catalogsReady}
-              competitions={competiciones}
-              teams={equipos}
-              confederations={confederaciones}
-              filters={catalogFilters}
-              setFilters={setCatalogFilters}
-              updateFilter={updateFilter}
-              countries={countries}
-              catalog={catalog}
-              items={catalogItems}
-              total={catalogTotal}
-              clearFilters={clearFilters}
-              openCreate={openCreate}
-              closeForms={closeForms}
-              onEditConfederation={handleEditConf}
-              onEditCompetition={handleEditComp}
-              onEditTeam={handleEditEq}
-              onDeleteConfederation={handleEliminarConf}
-              onDeleteCompetition={handleEliminarComp}
-              onDeleteTeam={handleEliminarEq}
-            />
+            <section
+              aria-label="Módulos del catálogo"
+              className="once-catalog-workspace"
+            >
+              <ModuleTabs
+                items={catalogModules}
+                value={catalogTab}
+                onChange={setCatalogTab}
+                label="Tipo de catálogo"
+                id="catalog-tab"
+                panelId="catalog-module-panel"
+              />
+              <div
+                role="tabpanel"
+                id="catalog-module-panel"
+                aria-labelledby={`catalog-tab-${catalogTab}`}
+              >
+                {[
+                  "competiciones",
+                  "equipos",
+                  "confederaciones",
+                  "plantillas",
+                ].includes(catalogTab) && (
+                  <div className="once-module-intro">
+                    <span className="v-eyebrow">
+                      CATÁLOGO / {selectedCatalogModule.label}
+                    </span>
+                    <h2>{selectedCatalogModule.label}</h2>
+                    <p>{selectedCatalogModule.description}</p>
+                  </div>
+                )}
+                {["competiciones", "equipos", "confederaciones"].includes(
+                  catalogTab,
+                ) ? (
+                  <CatalogView
+                    catalogTab={catalogTab}
+                    setCatalogTab={setCatalogTab}
+                    catalogsReady={catalogsReady}
+                    competitions={competiciones}
+                    teams={equipos}
+                    confederations={confederaciones}
+                    filters={catalogFilters}
+                    setFilters={setCatalogFilters}
+                    onRelated={(type, filters) => {
+                      setFiltersByModule((current) => ({
+                        ...current,
+                        [type]: { ...EMPTY_FILTERS, ...filters },
+                      }));
+                      setCatalogTab(type);
+                    }}
+                    updateFilter={updateFilter}
+                    countries={countries}
+                    catalog={catalog}
+                    items={catalogItems}
+                    total={catalogTotal}
+                    clearFilters={clearFilters}
+                    openCreate={openCreate}
+                    closeForms={closeForms}
+                    onEditConfederation={handleEditConf}
+                    onEditCompetition={handleEditComp}
+                    onEditTeam={handleEditEq}
+                    onDeleteConfederation={handleEliminarConf}
+                    onDeleteCompetition={handleEliminarComp}
+                    onDeleteTeam={handleEliminarEq}
+                  />
+                ) : catalogTab === "plantillas" ? (
+                  <RostersView teams={equipos} onError={handleApiError} />
+                ) : (
+                  <ContextView
+                    key={catalogTab}
+                    module={catalogTab}
+                    data={data}
+                    onSaved={fetchCatalogs}
+                    onError={handleApiError}
+                  />
+                )}
+              </div>
+            </section>
           )}
 
           {activeTab === "matriculas" && (
@@ -587,6 +736,11 @@ export function AdminWorkspace({ data, notice }) {
               setSearch={setEnrollmentSearch}
               onlyFree={onlyFree}
               setOnlyFree={setOnlyFree}
+              mode={enrollmentMode}
+              setMode={setEnrollmentMode}
+              context={enrollmentContext}
+              setContext={setEnrollmentContext}
+              total={equipos.length}
             />
           )}
 
@@ -595,15 +749,66 @@ export function AdminWorkspace({ data, notice }) {
               filter={matchFilter}
               setFilter={setMatchFilter}
               incompleteCount={summary.incomplete.length}
-              matches={matchItems}
+              matches={partidos}
+              revision={updatedAt?.getTime() || 0}
               onDelete={handleEliminarPartido}
               onCreate={() => openCreate("partidos")}
+              context={matchContext}
+              updateContext={(field, value) =>
+                setMatchContext((current) =>
+                  changeMatchContext(current, field, value),
+                )
+              }
+              clearFilters={() => {
+                setMatchContext({ ...EMPTY_MATCH_FILTERS });
+                setMatchFilter("");
+              }}
+              competitions={competiciones}
+              seasons={temporadas}
+              phases={fases}
+              teams={equipos}
+              total={data.counts.matches || 0}
+              ready={matchesReady}
+              onError={handleApiError}
             />
+          )}
+          {dataVisited && (
+            <div hidden={activeTab !== "datos"}>
+              <DataWorkspace
+                active={activeTab === "datos"}
+                permissions={data.permissions}
+                onImported={() =>
+                  Promise.all([fetchCatalogs(), fetchPartidos()])
+                }
+                onError={handleApiError}
+                onNavigate={(module) => {
+                  const target = {
+                    confederations: "confederaciones",
+                    competitions: "competiciones",
+                    teams: "equipos",
+                    seasons: "temporadas",
+                    stages: "fases",
+                    venues: "estadios",
+                    players: "jugadores",
+                  }[module];
+                  if (target) goCatalog(target);
+                  else if (module === "enrollments") goEnrollments();
+                  else {
+                    setMatchContext({ ...EMPTY_MATCH_FILTERS });
+                    setMatchFilter("");
+                    changeSection("arena");
+                  }
+                }}
+              />
+            </div>
           )}
           <footer className="v-footer">
             <Brand />
             <span>DISEÑADO PARA MOVER EL JUEGO.</span>
             <small>ADMINISTRACIÓN / ACCESO RESTRINGIDO</small>
+            <div className="once-footer-credits">
+              <CrestCredits />
+            </div>
           </footer>
         </div>
       </main>

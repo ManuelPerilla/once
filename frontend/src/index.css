@@ -2,8 +2,10 @@
 @import "./styles/tokens.css";
 @import "./styles/motion.css";
 
-/* Preserve the established cascade independently of lazy-loaded JavaScript. */
+/* Load the complete design system independently of lazy-loaded JavaScript. */
 @import "./admin.css";
 @import "./admin-once.css";
 @import "./public/public.css";
 @import "./public/once.css";
+@import "./styles/surfaces.css";
+@import "./admin/organization.css";

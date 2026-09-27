@@ -17,9 +17,15 @@ El flujo es: **fuente → lote conservado → normalización → revisión de id
 - Creación o vínculo de entidades con IDs internos, `ProviderMapping` y `ProviderSnapshot`. Los nombres, imágenes y correcciones de los registros existentes se conservan.
 - Aplicación atómica e idempotente: un conflicto revierte todo el lote. Las importaciones se serializan mediante un bloqueo transaccional en PostgreSQL; si cambian las coincidencias hay que revisar otra vez.
 - Gestión explícita de 429/maxlag: se comunica la limitación y no se lanza una cascada de reintentos. El botón de preparación hace una consulta interactiva acotada; siguiendo la [política de MediaWiki](https://www.mediawiki.org/wiki/Manual:Maxlag_parameter), omite `maxlag`. El cliente conserva `maxlag=5` por defecto para tareas no interactivas. Ambas modalidades respetan los errores 429.
-- Panel en **Administrador → Inicio → La mesa de fuentes → Haz crecer tu catálogo**.
+- Panel en **Administrador → Datos → Traer información → Añadir equipos y torneos**.
 
 No hace falta una clave de API ni una cuenta de Wikidata. La importación no crea temporadas, matrículas, resultados, plantillas ni clasificaciones. Las imágenes tienen licencias separadas y conservan el flujo específico de Commons.
+
+### Escudos sin sustituir correcciones locales
+
+Después de crear o conectar las fichas, **Buscar escudos e imágenes** usa sus identidades de Wikidata para consultar Wikimedia Commons. El administrador ve el escudo y su licencia antes de guardarlo. Las selecciones usan la misma entidad `team` que los clubes: no se infiere su escudo a partir de la bandera del país.
+
+Los escudos se identifican por `P154`, se guardan con autoría y procedencia en `MediaAsset` y solo completan imágenes ausentes. Una fotografía `P18` no se usa como escudo. No se amplía el lote de identidades con imágenes sin revisar ni se ejecutan consultas externas en las páginas públicas. La atribución pública se obtiene en una consulta local para todo el catálogo visual. Consulta [el contrato y las condiciones por archivo](providers.md#escudos-con-revisión-antes-de-publicar).
 
 ### Separación del código
 
@@ -68,5 +74,7 @@ La presencia de una afirmación en Wikidata no garantiza que esté completa o ac
 ## Verificación
 
 `tests/test_catalog_import.py` comprueba autenticación, caché, procedencia, vínculos, conservación de campos manuales, duplicados, datos incompletos, caducidad, cambios desde la vista previa y reversión de errores. Usa respuestas controladas y no depende de internet.
+
+`tests/test_wikidata_media.py` verifica la prioridad de los escudos sobre fotografías, la caché, las URL y licencias, los límites del proveedor, la confirmación del archivo revisado, la conservación de imágenes manuales y la atribución pública solo de recursos seleccionados.
 
 `frontend/e2e/catalog.spec.js` prueba la pantalla con Wikidata real y PostgreSQL detrás de NGINX. Es optativa: requiere `CATALOG_LIVE_TEST=1` además de las variables `SMOKE_*` de una instancia desechable. No debe apuntar a la base de trabajo. Las pruebas de migración comprueban también la creación de la tabla de lotes desde una instalación legacy.

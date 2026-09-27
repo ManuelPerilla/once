@@ -1,20 +1,17 @@
-import { COMPETITION_TYPES, EMPTY_FILTERS } from "../catalogFilters";
+import { COMPETITION_TYPES } from "../catalogFilters";
 import { Crest } from "../components/ui/Crest";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Field } from "../components/ui/Field";
 import { Icon } from "../components/ui/Icon";
 
-const tabOrder = ["competiciones", "equipos", "confederaciones"];
-
 export function CatalogView({
   catalogTab,
-  setCatalogTab,
   catalogsReady,
   competitions,
   teams,
   confederations,
   filters,
-  setFilters,
+  onRelated,
   updateFilter,
   countries,
   catalog,
@@ -30,61 +27,12 @@ export function CatalogView({
   onDeleteCompetition,
   onDeleteTeam,
 }) {
-  const changeTab = (type) => {
-    setCatalogTab(type);
-    clearFilters();
-  };
-
   return (
     <section
       className="v-panel v-catalog-panel"
       aria-label="Catálogo del ecosistema"
     >
-      <div className="v-tabs" role="tablist" aria-label="Tipo de catálogo">
-        {[
-          ["competiciones", "Competiciones", competitions.length],
-          ["equipos", "Equipos", teams.length],
-          ["confederaciones", "Confederaciones", confederations.length],
-        ].map(([type, label, count]) => (
-          <button
-            role="tab"
-            id={`tab-${type}`}
-            aria-controls="catalog-panel"
-            aria-selected={catalogTab === type}
-            tabIndex={catalogTab === type ? 0 : -1}
-            key={type}
-            onKeyDown={(event) => {
-              if (
-                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
-              )
-                return;
-              event.preventDefault();
-              const index =
-                event.key === "Home"
-                  ? 0
-                  : event.key === "End"
-                    ? tabOrder.length - 1
-                    : (tabOrder.indexOf(type) +
-                        (event.key === "ArrowRight" ? 1 : -1) +
-                        tabOrder.length) %
-                      tabOrder.length;
-              const next = tabOrder[index];
-              changeTab(next);
-              document.getElementById(`tab-${next}`)?.focus();
-            }}
-            onClick={() => changeTab(type)}
-          >
-            {label}
-            <small>{catalogsReady ? count : "—"}</small>
-          </button>
-        ))}
-      </div>
-
-      <div
-        role="tabpanel"
-        id="catalog-panel"
-        aria-labelledby={`tab-${catalogTab}`}
-      >
+      <div>
         <div className="v-filter-bar">
           <label className="v-field v-search">
             <span>Buscar por nombre</span>
@@ -111,9 +59,7 @@ export function CatalogView({
                       {confederation.nombre}
                     </option>
                   ))}
-                  <option value="unassigned">
-                    Sin confederación / globales
-                  </option>
+                  <option value="unassigned">Sin confederación asignada</option>
                 </select>
               </Field>
 
@@ -255,13 +201,7 @@ export function CatalogView({
                 <button
                   className="v-text-btn"
                   onClick={() => {
-                    setFilters((current) => ({
-                      ...current,
-                      search: "",
-                      teamType: "",
-                      competition: String(item.id),
-                    }));
-                    setCatalogTab("equipos");
+                    onRelated("equipos", { competition: String(item.id) });
                   }}
                 >
                   Ver equipos
@@ -273,11 +213,9 @@ export function CatalogView({
                 <button
                   className="v-text-btn"
                   onClick={() => {
-                    setFilters({
-                      ...EMPTY_FILTERS,
+                    onRelated("competiciones", {
                       confederation: String(item.id),
                     });
-                    setCatalogTab("competiciones");
                   }}
                 >
                   Explorar

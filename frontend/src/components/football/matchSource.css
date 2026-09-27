@@ -1,0 +1,35 @@
+.once-match-source {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font: 500 13px/1.5 var(--body);
+}
+.once-match-source > span {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.once-match-source[data-provider="manual"] > span {
+  color: #775329;
+  background: #fff6e8;
+  border-color: #ecd9b9;
+}
+.once-match-source small {
+  font-size: 12px;
+}
+.once-fixture > .once-match-source {
+  margin: 0 18px 12px;
+}
+.p-match-hero > .once-match-source {
+  display: flex;
+  margin-top: 12px;
+  color: #c5d2e5;
+}
+.p-match-hero .once-match-source > span {
+  border-color: #ffffff3d;
+}
+.p-match-card .once-match-source {
+  margin-top: 8px;
+}

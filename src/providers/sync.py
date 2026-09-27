@@ -1,17 +1,24 @@
 import datetime
+import hashlib
+import json
+import re
+from collections import Counter
 
 from sqlmodel import Session, select
 
+from src.audit.service import apply_source_changes, open_issue, record_change
 from src.models import (
     AlineacionPartido,
     Competicion,
-    Equipo,
+    EntityRevision,
     Estadio,
     EstadisticasPartido,
     EstadoPartido,
     EventoPartido,
+    Fase,
     Jugador,
-    JugadorEquipo,
+    ParticipacionFase,
+    ParticipacionTemporada,
     Partido,
     ProviderMapping,
     ProviderSnapshot,
@@ -19,7 +26,7 @@ from src.models import (
 )
 
 PROVIDER = "api-football"
-FINISHED_STATUSES = {"FT", "AET", "PEN", "AWD", "WO"}
+FINISHED_STATUSES = {"FT", "AET", "PEN"}
 LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT"}
 
 
@@ -54,28 +61,26 @@ def _external_mapping(
 
 
 def _status(value: str | None) -> EstadoPartido:
+    if value in {"AWD", "WO"}:
+        return EstadoPartido.ADJUDICADO
     if value in FINISHED_STATUSES:
         return EstadoPartido.FINALIZADO
     if value in LIVE_STATUSES:
         return EstadoPartido.VIVO
-    return EstadoPartido.PROGRAMADO
+    return {
+        "NS": EstadoPartido.PROGRAMADO,
+        "TBD": EstadoPartido.PROGRAMADO,
+        "PST": EstadoPartido.APLAZADO,
+        "SUSP": EstadoPartido.SUSPENDIDO,
+        "CANC": EstadoPartido.CANCELADO,
+        "ABD": EstadoPartido.ABANDONADO,
+    }.get(value, EstadoPartido.DESCONOCIDO)
 
 
 def _parse_date(value: str | None) -> datetime.datetime | None:
     if not value:
         return None
     return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
-def _replace_provider_rows(session: Session, model, match_id: int) -> None:
-    rows = session.exec(
-        select(model).where(
-            model.partido_id == match_id,
-            model.source == PROVIDER,
-        )
-    ).all()
-    for row in rows:
-        session.delete(row)
 
 
 def _snapshot(
@@ -115,6 +120,7 @@ def _player_from_source(
     source: dict | None,
     *,
     position: str | None = None,
+    context=None,
 ) -> Jugador | None:
     source = source or {}
     external_id = source.get("id")
@@ -125,8 +131,7 @@ def _player_from_source(
     player = session.get(Jugador, mapping.local_id) if mapping else None
     if player:
         if not player.posicion and position:
-            player.posicion = position
-            session.add(player)
+            _source_apply(session, "player", player, {"posicion": position}, context=context)
         return player
 
     name = source.get("name") or source.get("firstname") or source.get("lastname")
@@ -136,6 +141,7 @@ def _player_from_source(
     player = Jugador(nombre=name, posicion=position)
     session.add(player)
     session.flush()
+    _record_created(session, "player", player, context=context)
     session.add(
         ProviderMapping(
             provider=PROVIDER,
@@ -148,36 +154,7 @@ def _player_from_source(
     return player
 
 
-def _ensure_roster_link(
-    session: Session,
-    *,
-    player_id: int,
-    team_id: int,
-    number: int | None,
-) -> None:
-    link = session.exec(
-        select(JugadorEquipo).where(
-            JugadorEquipo.jugador_id == player_id,
-            JugadorEquipo.equipo_id == team_id,
-            JugadorEquipo.fecha_fin.is_(None),
-        )
-    ).first()
-    if link:
-        if number is not None:
-            link.dorsal = number
-            session.add(link)
-        return
-
-    session.add(
-        JugadorEquipo(
-            jugador_id=player_id,
-            equipo_id=team_id,
-            dorsal=number,
-        )
-    )
-
-
-def _venue_for_fixture(session: Session, fixture: dict) -> Estadio | None:
+def _venue_for_fixture(session: Session, fixture: dict, *, context=None) -> Estadio | None:
     venue = fixture.get("fixture", {}).get("venue") or {}
     external_id = venue.get("id")
     mapped = _external_mapping(session, "venue", external_id)
@@ -185,7 +162,7 @@ def _venue_for_fixture(session: Session, fixture: dict) -> Estadio | None:
         return session.get(Estadio, mapped.local_id)
 
     name = venue.get("name")
-    if not name:
+    if not name or external_id is None:
         return None
 
     city = venue.get("city")
@@ -193,11 +170,20 @@ def _venue_for_fixture(session: Session, fixture: dict) -> Estadio | None:
         select(Estadio).where(Estadio.nombre == name, Estadio.ciudad == city)
     ).first()
     if existing:
-        stadium = existing
-    else:
-        stadium = Estadio(nombre=name, ciudad=city)
-        session.add(stadium)
-        session.flush()
+        open_issue(
+            session,
+            key=f"identity:venue:{PROVIDER}:{external_id}",
+            entity_type="venue",
+            entity_id=existing.id,
+            source=PROVIDER,
+            reason="El estadio tiene un nombre parecido a una ficha existente. Confirma su vínculo.",
+            proposed={"external_id": str(external_id), "candidate_id": existing.id},
+        )
+        return None
+    stadium = Estadio(nombre=name, ciudad=city)
+    session.add(stadium)
+    session.flush()
+    _record_created(session, "venue", stadium, context=context)
 
     if external_id is not None and not mapped:
         session.add(
@@ -211,139 +197,276 @@ def _venue_for_fixture(session: Session, fixture: dict) -> Estadio | None:
     return stadium
 
 
+def _rows(payload):
+    if (
+        not isinstance(payload, dict)
+        or payload.get("errors")
+        or not isinstance(payload.get("response"), list)
+    ):
+        raise SyncConfigurationError("La fuente devolvió una respuesta incompleta o con errores.")
+    return payload["response"]
+
+
+def _source_apply(session, kind, item, changes, *, context=None, observed_at=None):
+    return apply_source_changes(
+        session,
+        kind,
+        item,
+        changes,
+        source=PROVIDER,
+        observed_at=observed_at or getattr(context, "observed_at", None),
+        run_id=context.job_id if context else None,
+    )
+
+
+def _record_created(session, kind, item, *, context=None):
+    values = item.model_dump(exclude={"id"})
+    _source_apply(session, kind, item, values, context=context)
+    revision = session.get(EntityRevision, (kind, item.id))
+    revision.version += 1
+    session.add(revision)
+    record_change(
+        session,
+        entity_type=kind,
+        entity_id=item.id,
+        field="__entity__",
+        before=None,
+        after=values,
+        action="source_create",
+        actor="service:sync",
+        reason="Ficha creada desde una identidad publicada por la fuente",
+        version=revision.version,
+        source=PROVIDER,
+        run_id=context.job_id if context else None,
+    )
+
+
 def sync_competition_fixtures(
     session: Session,
     competition_id: int,
     season_id: int,
     fixtures_payload: dict,
+    *,
+    commit=True,
+    context=None,
 ) -> dict:
     competition = session.get(Competicion, competition_id)
     season = session.get(Temporada, season_id)
-    if not competition:
-        raise SyncConfigurationError("Competición local no encontrada.")
-    if not season or season.competicion_id != competition_id:
+    if not competition or not season or season.competicion_id != competition_id:
         raise SyncConfigurationError("La temporada no pertenece a la competición indicada.")
-
     competition_mapping = _local_mapping(session, "competition", competition_id)
     season_mapping = _local_mapping(session, "season", season_id)
-    if not competition_mapping:
-        raise SyncConfigurationError("La competición no tiene mapping de API-Football.")
-    if not season_mapping:
-        raise SyncConfigurationError("La temporada no tiene mapping de API-Football.")
-
-    created = 0
-    updated = 0
+    if not competition_mapping or not season_mapping:
+        raise SyncConfigurationError("Conecta la competición y su temporada con la fuente.")
+    rows = _rows(fixtures_payload)
+    for row in rows:
+        league = row.get("league") or {}
+        if league.get("id") is not None and str(league["id"]) != competition_mapping.external_id:
+            raise SyncConfigurationError("La respuesta contiene partidos de otra competición.")
+        if league.get("season") is not None and str(league["season"]) != season_mapping.external_id:
+            raise SyncConfigurationError("La respuesta contiene partidos de otro año.")
+    mappings = session.exec(
+        select(ProviderMapping).where(
+            ProviderMapping.provider == PROVIDER, ProviderMapping.entity_type.in_(["team", "match"])
+        )
+    ).all()
+    links = {(row.entity_type, row.external_id): row.local_id for row in mappings}
+    created = updated = changed = 0
     skipped = []
-
-    for source in fixtures_payload.get("response", []):
-        fixture = source.get("fixture") or {}
-        teams = source.get("teams") or {}
-        home_external = (teams.get("home") or {}).get("id")
-        away_external = (teams.get("away") or {}).get("id")
-        home_mapping = _external_mapping(session, "team", home_external)
-        away_mapping = _external_mapping(session, "team", away_external)
-
-        if not home_mapping or not away_mapping:
-            skipped.append(
-                {
-                    "fixture_id": fixture.get("id"),
-                    "home": (teams.get("home") or {}).get("name"),
-                    "away": (teams.get("away") or {}).get("name"),
-                    "reason": "team_mapping_missing",
-                }
-            )
-            continue
-
-        local_home = session.get(Equipo, home_mapping.local_id)
-        local_away = session.get(Equipo, away_mapping.local_id)
-        if not local_home or not local_away:
-            skipped.append(
-                {
-                    "fixture_id": fixture.get("id"),
-                    "reason": "mapped_team_missing_locally",
-                }
-            )
-            continue
-
+    for source in rows:
+        fixture, teams = source.get("fixture") or {}, source.get("teams") or {}
         fixture_id = fixture.get("id")
-        match_mapping = _external_mapping(session, "match", fixture_id)
-        match = session.get(Partido, match_mapping.local_id) if match_mapping else None
+        home = links.get(("team", str((teams.get("home") or {}).get("id"))))
+        away = links.get(("team", str((teams.get("away") or {}).get("id"))))
+        if not fixture_id or not home or not away or home == away:
+            skipped.append({"fixture_id": fixture_id, "reason": "team_mapping_missing"})
+            continue
+        match = (
+            session.get(Partido, links.get(("match", str(fixture_id))))
+            if ("match", str(fixture_id)) in links
+            else None
+        )
         is_new = match is None
+        if match and (match.competicion_id != competition_id or match.temporada_id != season_id):
+            skipped.append({"fixture_id": fixture_id, "reason": "edition_conflict"})
+            continue
         if is_new:
+            # A second source must not duplicate an already imported historical match.
+            # Same participants can play several times, so a candidate is reviewed,
+            # never merged using names or an assumed date/timezone.
+            linked_matches = select(ProviderMapping.local_id).where(
+                ProviderMapping.provider == PROVIDER,
+                ProviderMapping.entity_type == "match",
+            )
+            candidate = session.exec(
+                select(Partido)
+                .where(
+                    Partido.temporada_id == season_id,
+                    Partido.equipo_local_id == home,
+                    Partido.equipo_visitante_id == away,
+                    Partido.id.not_in(linked_matches),
+                )
+                .limit(1)
+            ).first()
+            if candidate:
+                open_issue(
+                    session,
+                    key=f"identity:match:{PROVIDER}:{fixture_id}",
+                    entity_type="match",
+                    entity_id=candidate.id,
+                    source=PROVIDER,
+                    reason="Otra fuente ya contiene un partido entre estos equipos en esta edición. Revisa su identidad antes de añadirlo.",
+                    proposed={"external_id": str(fixture_id), "candidate_id": candidate.id},
+                )
+                skipped.append({"fixture_id": fixture_id, "reason": "match_identity_review"})
+                continue
             match = Partido(
                 competicion_id=competition_id,
                 temporada_id=season_id,
-                equipo_local_id=local_home.id,
-                equipo_visitante_id=local_away.id,
+                equipo_local_id=home,
+                equipo_visitante_id=away,
                 estado=EstadoPartido.PROGRAMADO,
             )
             session.add(match)
             session.flush()
-
-        venue = _venue_for_fixture(session, source)
-        status = _status((fixture.get("status") or {}).get("short"))
-        goals = source.get("goals") or {}
-
-        match.competicion_id = competition_id
-        match.temporada_id = season_id
-        match.equipo_local_id = local_home.id
-        match.equipo_visitante_id = local_away.id
-        match.estadio_id = venue.id if venue else None
-        match.fecha = _parse_date(fixture.get("date"))
-        match.jornada = (source.get("league") or {}).get("round")
-        match.estado = status
-        match.marcador_local = goals.get("home") or 0
-        match.marcador_visitante = goals.get("away") or 0
-        session.add(match)
-
-        if fixture_id is not None:
-            _snapshot(
-                session,
-                entity_type="match",
-                local_id=match.id,
-                kind="fixture",
-                payload=source,
-            )
-
-        if is_new and fixture_id is not None:
+            _record_created(session, "match", match, context=context)
             session.add(
                 ProviderMapping(
                     provider=PROVIDER,
                     entity_type="match",
                     local_id=match.id,
                     external_id=str(fixture_id),
-                    source_url=f"https://v3.football.api-sports.io/fixtures?id={fixture_id}",
                 )
             )
+            links[("match", str(fixture_id))] = match.id
             created += 1
         else:
             updated += 1
+        values = {
+            "competicion_id": competition_id,
+            "temporada_id": season_id,
+            "equipo_local_id": home,
+            "equipo_visitante_id": away,
+        }
+        if fixture.get("date"):
+            values["fecha"] = _parse_date(fixture["date"])
+        code = (fixture.get("status") or {}).get("short")
+        if code:
+            values.update(estado=_status(code), estado_fuente=code)
+        venue = _venue_for_fixture(session, source, context=context)
+        if venue:
+            values["estadio_id"] = venue.id
+        round_name = (source.get("league") or {}).get("round")
+        if round_name:
+            values["jornada"] = round_name
+            # The published numeric suffix identifies a jornada, not a new phase.
+            phase_name = re.sub(r" - [0-9]+$", "", round_name).strip()
+            phase = session.exec(
+                select(Fase).where(Fase.temporada_id == season_id, Fase.nombre == phase_name)
+            ).first()
+            if not phase:
+                phase = Fase(temporada_id=season_id, nombre=phase_name, tipo="fase_publicada")
+                session.add(phase)
+                session.flush()
+                _record_created(session, "stage", phase, context=context)
+            values["fase_id"] = phase.id
+        for source_field, local_field in (
+            ("home", "marcador_local"),
+            ("away", "marcador_visitante"),
+        ):
+            value = (source.get("goals") or {}).get(source_field)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                values[local_field] = value
+        changed += len(_source_apply(session, "match", match, values, context=context))
+        for team in (home, away):
+            if not session.get(ParticipacionTemporada, (team, season_id)):
+                session.add(
+                    ParticipacionTemporada(equipo_id=team, temporada_id=season_id, source=PROVIDER)
+                )
+            if values.get("fase_id") and not session.get(
+                ParticipacionFase, (team, values["fase_id"])
+            ):
+                session.add(
+                    ParticipacionFase(equipo_id=team, fase_id=values["fase_id"], source=PROVIDER)
+                )
+        _snapshot(session, entity_type="match", local_id=match.id, kind="fixture", payload=source)
+        session.flush()
+    from src.football.projections import rebuild_season_standings
 
-    session.commit()
+    rebuild_season_standings(session, season_id)
+    if commit:
+        session.commit()
     return {
         "provider": PROVIDER,
         "competition_id": competition_id,
         "season_id": season_id,
         "created": created,
         "updated": updated,
+        "changed": changed + created,
         "skipped": skipped,
+        "topics": ["matches", "standings"],
     }
 
 
-def _team_id_from_external(session: Session, external_id: int | str | None) -> int | None:
-    mapping = _external_mapping(session, "team", external_id)
-    return mapping.local_id if mapping else None
+def _team_id_from_external(session, external_id):
+    row = _external_mapping(session, "team", external_id)
+    return row.local_id if row else None
 
 
-def _stat_value(statistics: list[dict], name: str):
+def _stat_value(statistics, name):
     item = next((item for item in statistics if item.get("type") == name), None)
     value = item.get("value") if item else None
-    if isinstance(value, str) and value.endswith("%"):
-        try:
-            return int(round(float(value[:-1])))
-        except ValueError:
-            return None
-    return value
+    try:
+        return int(round(float(value.rstrip("%")))) if isinstance(value, str) else value
+    except ValueError:
+        return None
+
+
+def _reconcile(session, model, kind, match_id, values, *, complete=False, context=None):
+    existing = session.exec(
+        select(model).where(model.partido_id == match_id, model.source == PROVIDER)
+    ).all()
+    by_key = {row.source_key: row for row in existing if row.source_key}
+    used, changed = set(), 0
+    for data in values:
+        key = data["source_key"]
+        row = by_key.get(key)
+        if row is None:
+            # Adopt exact legacy data once without changing its canonical ID.
+            row = next(
+                (
+                    old
+                    for old in existing
+                    if old.source_key is None
+                    and old.id not in used
+                    and all(getattr(old, k) == v for k, v in data.items() if k != "source_key")
+                ),
+                None,
+            )
+        if row is None:
+            row = model(partido_id=match_id, source=PROVIDER, **data)
+            session.add(row)
+            session.flush()
+            _record_created(session, kind, row, context=context)
+            changed += 1
+        else:
+            changed += len(_source_apply(session, kind, row, data, context=context))
+        used.add(row.id)
+    # A complete HTTP page is not proof that a live feed contains every historical row.
+    # Missing rows require review; only explicit corrections can remove canonical details.
+    if complete and values:
+        for row in existing:
+            if row.id not in used:
+                open_issue(
+                    session,
+                    key=f"missing:{PROVIDER}:{kind}:{row.id}",
+                    entity_type=kind,
+                    entity_id=row.id,
+                    source=PROVIDER,
+                    reason="La última respuesta no incluye este detalle. Se conserva hasta revisarlo.",
+                    proposed={"missing_from_observation": True, "match_id": match_id},
+                )
+    return changed
 
 
 def sync_match_detail(
@@ -353,156 +476,131 @@ def sync_match_detail(
     events_payload: dict,
     lineups_payload: dict,
     statistics_payload: dict,
+    commit=True,
+    context=None,
 ) -> dict:
     match = session.get(Partido, match_id)
-    if not match:
-        raise SyncConfigurationError("Partido local no encontrado.")
-
-    match_mapping = _local_mapping(session, "match", match_id)
-    if not match_mapping:
-        raise SyncConfigurationError("El partido no tiene mapping de API-Football.")
-
-    _snapshot(
-        session,
-        entity_type="match",
-        local_id=match_id,
-        kind="events",
-        payload=events_payload,
-    )
-    _snapshot(
-        session,
-        entity_type="match",
-        local_id=match_id,
-        kind="lineups",
-        payload=lineups_payload,
-    )
-    _snapshot(
-        session,
-        entity_type="match",
-        local_id=match_id,
-        kind="statistics",
-        payload=statistics_payload,
-    )
-
-    _replace_provider_rows(session, EventoPartido, match_id)
-    _replace_provider_rows(session, AlineacionPartido, match_id)
-    _replace_provider_rows(session, EstadisticasPartido, match_id)
-
-    event_count = 0
-    lineup_count = 0
-    player_ids: set[int] = set()
-
-    for source in events_payload.get("response", []):
+    mapping = _local_mapping(session, "match", match_id)
+    if not match or not mapping:
+        raise SyncConfigurationError("El partido no tiene un vínculo válido con API-Football.")
+    events, lineups, statistics = map(_rows, (events_payload, lineups_payload, statistics_payload))
+    players, event_values, lineup_values = set(), [], []
+    occurrences = Counter()
+    for source in events:
         team_id = _team_id_from_external(session, (source.get("team") or {}).get("id"))
-        player = _player_from_source(session, source.get("player"))
-        assistant = _player_from_source(session, source.get("assist"))
-        if player:
-            player_ids.add(player.id)
-        if assistant:
-            player_ids.add(assistant.id)
-
+        if team_id not in (match.equipo_local_id, match.equipo_visitante_id):
+            continue
+        player = _player_from_source(session, source.get("player"), context=context)
+        assistant = _player_from_source(session, source.get("assist"), context=context)
+        players.update(item.id for item in (player, assistant) if item)
         time = source.get("time") or {}
-        session.add(
-            EventoPartido(
-                partido_id=match_id,
-                source=PROVIDER,
-                equipo_id=team_id,
-                jugador_id=player.id if player else None,
-                asistente_id=assistant.id if assistant else None,
-                tipo=source.get("type") or "Evento",
-                minuto=int(time.get("elapsed") or 0),
-                adicional=int(time.get("extra") or 0),
-                detalle=source.get("detail") or source.get("comments"),
-            )
+        elapsed, extra = time.get("elapsed"), time.get("extra") or 0
+        if (
+            not isinstance(elapsed, int)
+            or not 0 <= elapsed <= 150
+            or not isinstance(extra, int)
+            or not 0 <= extra <= 30
+        ):
+            continue
+        identity = {key: source.get(key) for key in ("time", "team", "player", "type")}
+        digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+        occurrences[digest] += 1
+        event_values.append(
+            {
+                "source_key": f"{digest}:{occurrences[digest]}",
+                "equipo_id": team_id,
+                "jugador_id": player.id if player else None,
+                "asistente_id": assistant.id if assistant else None,
+                "tipo": source.get("type") or "Evento",
+                "minuto": elapsed,
+                "adicional": extra,
+                "detalle": source.get("detail") or source.get("comments"),
+            }
         )
-        event_count += 1
-
-    for team_source in lineups_payload.get("response", []):
+    for team_source in lineups:
         team_id = _team_id_from_external(session, (team_source.get("team") or {}).get("id"))
         if team_id not in (match.equipo_local_id, match.equipo_visitante_id):
             continue
-
-        groups = [
+        for starter, entries in (
             (True, team_source.get("startXI") or []),
             (False, team_source.get("substitutes") or []),
-        ]
-        order = 0
-        for starter, entries in groups:
-            for entry in entries:
+        ):
+            for order, entry in enumerate(entries):
                 source = entry.get("player") or {}
                 player = _player_from_source(
-                    session,
-                    source,
-                    position=source.get("pos"),
+                    session, source, position=source.get("pos"), context=context
                 )
                 if not player:
                     continue
-                player_ids.add(player.id)
+                players.add(player.id)
                 number = source.get("number")
-                session.add(
-                    AlineacionPartido(
-                        partido_id=match_id,
-                        source=PROVIDER,
-                        equipo_id=team_id,
-                        jugador_id=player.id,
-                        titular=starter,
-                        posicion=source.get("pos"),
-                        dorsal=number,
-                        orden=order,
-                    )
+                lineup_values.append(
+                    {
+                        "source_key": f"{team_id}:{player.id}",
+                        "equipo_id": team_id,
+                        "jugador_id": player.id,
+                        "titular": starter,
+                        "posicion": source.get("pos"),
+                        "dorsal": number if isinstance(number, int) and 0 <= number <= 99 else None,
+                        "orden": order,
+                    }
                 )
-                _ensure_roster_link(
-                    session,
-                    player_id=player.id,
-                    team_id=team_id,
-                    number=number,
-                )
-                order += 1
-                lineup_count += 1
-
-    team_statistics: dict[int, list[dict]] = {}
-    for source in statistics_payload.get("response", []):
-        team_id = _team_id_from_external(session, (source.get("team") or {}).get("id"))
-        if team_id:
-            team_statistics[team_id] = source.get("statistics") or []
-
-    home_stats = team_statistics.get(match.equipo_local_id)
-    away_stats = team_statistics.get(match.equipo_visitante_id)
-    stats_created = False
-    if home_stats is not None and away_stats is not None:
-        home_possession = _stat_value(home_stats, "Ball Possession")
-        away_possession = _stat_value(away_stats, "Ball Possession")
-        home_shots = _stat_value(home_stats, "Shots on Goal")
-        away_shots = _stat_value(away_stats, "Shots on Goal")
-
-        if all(
-            value is not None
-            for value in (
-                home_possession,
-                away_possession,
-                home_shots,
-                away_shots,
-            )
-        ):
-            session.add(
-                EstadisticasPartido(
-                    partido_id=match_id,
-                    source=PROVIDER,
-                    posesion_local=int(home_possession),
-                    posesion_visitante=int(away_possession),
-                    tiros_puerta_local=int(home_shots),
-                    tiros_puerta_visitante=int(away_shots),
-                )
-            )
-            stats_created = True
-
-    session.commit()
+    team_stats = {
+        _team_id_from_external(session, (row.get("team") or {}).get("id")): row.get("statistics")
+        or []
+        for row in statistics
+    }
+    values = [
+        _stat_value(team_stats.get(team, []), key)
+        for key in ("Ball Possession", "Shots on Goal")
+        for team in (match.equipo_local_id, match.equipo_visitante_id)
+    ]
+    stats_values = []
+    if (
+        all(isinstance(value, (int, float)) and value >= 0 for value in values)
+        and max(values[:2]) <= 100
+    ):
+        stats_values = [
+            {
+                "source_key": "match",
+                "posesion_local": int(values[0]),
+                "posesion_visitante": int(values[1]),
+                "tiros_puerta_local": int(values[2]),
+                "tiros_puerta_visitante": int(values[3]),
+            }
+        ]
+    changed = 0
+    for model, kind, data, payload in (
+        (EventoPartido, "event", event_values, events_payload),
+        (AlineacionPartido, "lineup", lineup_values, lineups_payload),
+        (EstadisticasPartido, "statistics", stats_values, statistics_payload),
+    ):
+        changed += _reconcile(
+            session,
+            model,
+            kind,
+            match_id,
+            data,
+            complete=payload.get("_complete") is True,
+            context=context,
+        )
+        _snapshot(
+            session,
+            entity_type="match",
+            local_id=match_id,
+            kind={"event": "events", "lineup": "lineups"}.get(kind, kind),
+            payload=payload,
+        )
+    if commit:
+        session.commit()
     return {
         "provider": PROVIDER,
         "match_id": match_id,
-        "external_fixture_id": match_mapping.external_id,
-        "events": event_count,
-        "lineup_entries": lineup_count,
-        "players_touched": len(player_ids),
-        "statistics": stats_created,
+        "external_fixture_id": mapping.external_id,
+        "events": len(event_values),
+        "lineup_entries": len(lineup_values),
+        "players_touched": len(players),
+        "statistics": bool(stats_values),
+        "changed": changed,
+        "topics": ["matches"],
     }

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
 from src.api.dependencies import get_session, verificar_token
-from src.api.persistence import save
+from src.api.persistence import audit_pending, save
 from src.api.validation import validar_contexto_partido
 from src.football.queries import matches_query, partido_publico
 from src.football.rules import validar_compatibilidad
@@ -84,6 +84,7 @@ def crear_partido(partido_in: PartidoCreate, session: Session = Depends(get_sess
 
     partido_db = Partido.model_validate(partido_in)
     session.add(partido_db)
+    audit_pending(session)
     session.commit()
     session.refresh(partido_db)
     return partido_publico(partido_db, details=False)
@@ -117,5 +118,6 @@ def eliminar_partido(partido_id: int, session: Session = Depends(get_session)):
     if not partido:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
     session.delete(partido)
+    audit_pending(session)
     session.commit()
     return {"ok": True, "mensaje": f"Partido {partido_id} eliminado correctamente"}

@@ -1,5 +1,7 @@
 function minuteLabel(event) {
-  return event.adicional ? `${event.minuto}+${event.adicional}′` : `${event.minuto}′`;
+  return event.adicional
+    ? `${event.minuto}+${event.adicional}′`
+    : `${event.minuto}′`;
 }
 
 const eventLabels = {
@@ -30,7 +32,11 @@ export function MatchTimeline({ events = [], players = [], match, navigate }) {
       </div>
       <ol className="p-timeline">
         {ordered.map((event) => {
-          const player = playerById.get(event.jugador_id);
+          const player =
+            playerById.get(event.jugador_id) ||
+            (event.jugador_nombre
+              ? { id: event.jugador_id, nombre: event.jugador_nombre }
+              : null);
           const home = event.equipo_id === match.equipo_local_id;
           return (
             <li

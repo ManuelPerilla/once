@@ -9,10 +9,38 @@ from src.security import hash_password
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def add_worker(config):
+    services = config["services"]
+    api = services["api"]
+    api.setdefault("environment", {})["ONCE_MEDIA_DIR"] = "/app/.media"
+    api["volumes"] = ["qa_media:/app/.media"]
+    api["healthcheck"]["test"][-1] = (
+        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+    )
+    config.setdefault("volumes", {})["qa_media"] = {}
+    services["worker"] = {
+        "image": api["image"],
+        "command": ["python", "-m", "src.sync.worker"],
+        "environment": {**api["environment"], "DB_POOL_SIZE": "2", "DB_MAX_OVERFLOW": "1"},
+        "volumes": ["qa_media:/app/.media"],
+        "depends_on": {"api": {"condition": "service_healthy"}},
+        "healthcheck": {
+            "test": ["CMD", "python", "-m", "src.sync.worker", "--health"],
+            "interval": "5s",
+            "timeout": "5s",
+            "start_period": "10s",
+            "retries": 10,
+        },
+    }
+    return config
+
+
 def prepare():
     target = ROOT / ".local" / "compose.qa.json"
     if target.exists():
-        print(f"Configuración existente conservada: {target}")
+        config = json.loads(target.read_text(encoding="utf-8"))
+        target.write_text(json.dumps(add_worker(config), indent=2), encoding="utf-8")
+        print(f"Configuración QA actualizada; identidad y secretos conservados: {target}")
         return
     password = secrets.token_hex(24)
     config = {
@@ -69,7 +97,7 @@ def prepare():
         "volumes": {"qa_data": {}},
     }
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    target.write_text(json.dumps(add_worker(config), indent=2), encoding="utf-8")
     print(f"Configuración desechable preparada: {target}")
 
 

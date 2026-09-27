@@ -59,6 +59,10 @@ export const workspaceSections = {
     action: "Registrar partido",
     icon: "plus",
   },
+  datos: {
+    label: "Datos",
+    icon: "globe",
+  },
 };
 
 export const workspaceNavigation = [
@@ -66,4 +70,5 @@ export const workspaceNavigation = [
   ["ecosistema", "02"],
   ["matriculas", "03"],
   ["arena", "04"],
+  ["datos", "05"],
 ];

@@ -3,10 +3,10 @@ import { apiRequest } from "../api";
 import { Icon } from "../components/ui/Icon";
 
 const states = {
-  new: "Nuevo",
-  review: "Revisar coincidencia",
-  linked: "Ya vinculado",
-  blocked: "Dato incompleto",
+  new: "Listo para añadir",
+  review: "¿Ya está en ONCE?",
+  linked: "Ya está en ONCE",
+  blocked: "Falta información",
 };
 const kinds = {
   confederation: "Confederación",
@@ -23,7 +23,7 @@ function initialChoices(rows) {
   );
 }
 
-export function CatalogImport({ onImported }) {
+export function CatalogImport({ onImported, onBusyChange }) {
   const [collections, setCollections] = useState([]);
   const [collection, setCollection] = useState("colombia");
   const [batch, setBatch] = useState(null);
@@ -45,6 +45,7 @@ export function CatalogImport({ onImported }) {
   const prepare = async (event) => {
     event.preventDefault();
     setBusy(true);
+    onBusyChange?.(true);
     setMessage("");
     setError("");
     setBatch(null);
@@ -58,6 +59,7 @@ export function CatalogImport({ onImported }) {
       setError(failure.message);
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -77,6 +79,7 @@ export function CatalogImport({ onImported }) {
 
   const apply = async () => {
     setBusy(true);
+    onBusyChange?.(true);
     setError("");
     setMessage("");
     try {
@@ -96,7 +99,7 @@ export function CatalogImport({ onImported }) {
         },
       });
       setMessage(
-        `Importación completada: ${result.created} nuevos, ${result.linked} vinculados y ${result.reused} ya existentes. Tus datos anteriores se conservan.`,
+        `Listo: añadimos ${result.created} registros, conectamos ${result.linked} con los que ya tenías y reconocimos ${result.reused} existentes. Tus datos anteriores se conservan.`,
       );
       setBatch(null);
       await onImported?.();
@@ -104,6 +107,7 @@ export function CatalogImport({ onImported }) {
       setError(failure.message);
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -115,19 +119,31 @@ export function CatalogImport({ onImported }) {
     >
       <div className="once-import-heading">
         <div>
-          <span className="v-eyebrow">DATOS ABIERTOS / WIKIDATA</span>
-          <h3 id="catalog-import-title">Haz crecer tu catálogo.</h3>
+          <span className="v-eyebrow">EMPIEZA AQUÍ · GRATIS</span>
+          <h3 id="catalog-import-title">Añadir equipos y torneos</h3>
           <p>
-            Trae identidades verificables, revisa coincidencias y conecta los
-            registros con ONCE.
+            Encuentra nombres, países y confederaciones sin escribirlos uno por
+            uno. Tú decides qué añadir antes de guardar.
           </p>
         </div>
-        <span className="once-import-license">Gratis · CC0</span>
+        <span className="once-import-license">Fuente: Wikidata · CC0</span>
       </div>
+      <ol className="once-import-steps" aria-label="Cómo añadir información">
+        <li aria-current={!batch ? "step" : undefined}>
+          <span>1</span> Elige un grupo
+        </li>
+        <li aria-current={batch ? "step" : undefined}>
+          <span>2</span> Revisa los nombres
+        </li>
+        <li>
+          <span>3</span> Guarda tu selección
+        </li>
+      </ol>
       <form className="once-import-controls" onSubmit={prepare}>
         <label>
-          <span>Colección de datos abiertos</span>
+          <span>¿Qué quieres añadir?</span>
           <select
+            aria-describedby="catalog-collection-help"
             value={collection}
             disabled={busy}
             onChange={(event) => {
@@ -139,7 +155,7 @@ export function CatalogImport({ onImported }) {
           >
             {collections.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name} · {item.count} registros
+                {item.name} · {item.count} nombres
               </option>
             ))}
           </select>
@@ -148,14 +164,14 @@ export function CatalogImport({ onImported }) {
           className="v-btn v-btn-dark"
           disabled={busy || !collections.length}
         >
-          {busy ? "Procesando…" : "Preparar vista previa"}
+          {busy ? "Preparando información…" : "Buscar y revisar"}
           <Icon name="arrow" />
         </button>
       </form>
-      <p className="once-import-help">
-        {collections.find((item) => item.id === collection)?.description} La
-        vista previa guarda una copia de la fuente; el catálogo cambia al
-        importar.
+      <p className="once-import-help" id="catalog-collection-help">
+        {collections.find((item) => item.id === collection)?.description} Buscar
+        no añade ni modifica equipos o torneos. Primero verás una lista para
+        revisar.
       </p>
       {error && (
         <p className="once-import-error" role="alert">
@@ -177,17 +193,19 @@ export function CatalogImport({ onImported }) {
               {rows.filter((row) => row.status === "review").length} por revisar
             </span>
             <span>
-              {rows.filter((row) => row.status === "linked").length} vinculados
+              {rows.filter((row) => row.status === "linked").length} ya en ONCE
             </span>
             <small>
-              {batch.cached ? "Copia local" : "Consultado en Wikidata"} ·{" "}
-              {new Date(batch.fetched_at).toLocaleString("es-CO")}
+              {batch.cached
+                ? "Última consulta guardada"
+                : "Consultado en Wikidata"}{" "}
+              · {new Date(batch.fetched_at).toLocaleString("es-CO")}
             </small>
           </div>
           <div
             className="once-import-list"
             role="list"
-            aria-label="Vista previa del catálogo"
+            aria-label="Información para revisar antes de guardar"
           >
             {rows.map((row) => (
               <article
@@ -214,7 +232,7 @@ export function CatalogImport({ onImported }) {
                 </span>
                 {row.status === "linked" || row.status === "blocked" ? (
                   <small>
-                    {row.status === "linked" ? "Se conserva" : "Se omite"}
+                    {row.status === "linked" ? "Sin cambios" : "No se añadirá"}
                   </small>
                 ) : (
                   <label>
@@ -230,17 +248,17 @@ export function CatalogImport({ onImported }) {
                       }
                     >
                       <option value="" disabled>
-                        Revisa antes de importar
+                        Elige qué hacer con este nombre
                       </option>
-                      <option value="skip">Omitir por ahora</option>
-                      <option value="create">Crear registro nuevo</option>
+                      <option value="skip">No añadir por ahora</option>
+                      <option value="create">Añadir como nuevo</option>
                       {row.choices.map((item) => (
                         <option key={item.id} value={`link:${item.id}`}>
-                          Vincular: {item.nombre}
+                          Es el mismo que: {item.nombre}
                           {row.candidates.some(
                             (candidate) => candidate.id === item.id,
                           )
-                            ? " · coincidencia"
+                            ? " · sugerido"
                             : ""}
                         </option>
                       ))}
@@ -253,10 +271,12 @@ export function CatalogImport({ onImported }) {
           <div className="once-import-actions">
             <p>
               {unresolved
-                ? "Decide si cada coincidencia corresponde a un registro existente."
+                ? "Hay nombres parecidos a los que ya tienes. Elige «Es el mismo que» para conectarlos sin duplicarlos, o «Añadir como nuevo» si son diferentes."
                 : missingParent
-                  ? "Incluye o vincula CONMEBOL para conectar sus equipos y competiciones."
-                  : "Se conservan nombres, imágenes y correcciones de los registros que vincules. Esta carga no crea partidos ni matrículas."}
+                  ? "Incluye también su confederación, o elige la que ya tienes, para que los equipos y torneos queden organizados."
+                  : selected.length
+                    ? "Al guardar, los nuevos nombres entran al catálogo. Si conectas uno existente, se conservan tus nombres, imágenes y correcciones. Podrás organizar sus partidos después."
+                    : "Todo lo encontrado ya está en ONCE o quedó sin seleccionar. No hay nada nuevo que guardar."}
             </p>
             <button
               type="button"
@@ -264,7 +284,8 @@ export function CatalogImport({ onImported }) {
               onClick={apply}
               disabled={busy || unresolved || missingParent || !selected.length}
             >
-              Importar {selected.length} registros <Icon name="link" />
+              {busy ? "Guardando…" : `Guardar selección (${selected.length})`}{" "}
+              <Icon name="check" />
             </button>
           </div>
         </>
