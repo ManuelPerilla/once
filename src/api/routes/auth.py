@@ -22,17 +22,14 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 def login(credentials: LoginRequest, response: Response, session: Session = Depends(get_session)):
     settings = get_auth_settings()
+    username_key = credentials.username.strip().casefold()
     bootstrap = hmac.compare_digest(
-        credentials.username.encode("utf-8"), settings.admin_username.encode("utf-8")
+        username_key.encode("utf-8"), settings.admin_username.casefold().encode("utf-8")
     )
     account = (
         None
         if bootstrap
-        else session.exec(
-            select(AdminAccount).where(
-                AdminAccount.username == credentials.username.strip().casefold()
-            )
-        ).first()
+        else session.exec(select(AdminAccount).where(AdminAccount.username == username_key)).first()
     )
     expected = account.password_hash if account else settings.admin_password_hash
     password_ok = verify_password(credentials.password, expected)

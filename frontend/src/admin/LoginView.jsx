@@ -52,7 +52,12 @@ export function LoginView({ login, notice }) {
           <form onSubmit={handleLogin} className="v-form">
             <Field label="Usuario">
               <input
+                id="admin-username"
+                name="username"
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={loginForm.username}
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, username: e.target.value })
@@ -66,8 +71,12 @@ export function LoginView({ login, notice }) {
               <div className="once-password-field">
                 <input
                   id="admin-password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={loginForm.password}
                   onChange={(e) =>
                     setLoginForm({ ...loginForm, password: e.target.value })

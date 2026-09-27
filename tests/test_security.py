@@ -19,6 +19,35 @@ def test_login_cookie_and_logout(client):
 
 
 @pytest.mark.parametrize(
+    "username", [TEST_USERNAME.upper(), f" {TEST_USERNAME} ", f" {TEST_USERNAME.upper()} "]
+)
+def test_login_normalizes_username_and_keeps_canonical_session(client, username):
+    response = client.post("/login", json={"username": username, "password": TEST_PASSWORD})
+    assert response.status_code == 200
+    assert response.json()["username"] == TEST_USERNAME
+    session = client.get("/auth/session")
+    assert session.status_code == 200
+    assert session.json()["username"] == TEST_USERNAME
+    assert session.json()["role"] == "admin"
+
+
+@pytest.mark.parametrize("password", [TEST_PASSWORD.upper(), f" {TEST_PASSWORD} "])
+def test_login_never_normalizes_password(client, password):
+    response = client.post("/login", json={"username": TEST_USERNAME.upper(), "password": password})
+    assert response.status_code == 401
+    assert "set-cookie" not in response.headers
+
+
+def test_login_retains_configured_username_spelling(client, monkeypatch):
+    canonical = TEST_USERNAME.upper()
+    monkeypatch.setenv("ADMIN_USERNAME", canonical)
+    get_auth_settings.cache_clear()
+    response = client.post("/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
+    assert response.status_code == 200
+    assert client.get("/auth/session").json()["username"] == canonical
+
+
+@pytest.mark.parametrize(
     "username,password", [("desconocido", TEST_PASSWORD), (TEST_USERNAME, "incorrecta")]
 )
 def test_wrong_credentials_are_rejected(client, username, password):

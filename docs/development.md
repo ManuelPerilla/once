@@ -166,6 +166,14 @@ La ruta manual del ayudante se comprobó contra PostgreSQL 15 desechable: migrac
 
 La revisión previa a esta publicación inspeccionó 313 archivos candidatos sin encontrar las credenciales locales ni patrones de claves privadas o tokens GitHub. Los secretos, copias y medios de trabajo siguen fuera de Git. Los cuatro servicios principales permanecieron saludables durante la elaboración de la documentación, y el atajo de salud obtuvo una respuesta correcta. No se invocó API-Football para verificar documentación ni se lanzó GitHub Actions.
 
+## Acceso administrativo desde móvil por LAN (27 de septiembre de 2026)
+
+Los registros mostraron intentos de Safari en iPhone que alcanzaban `POST /api/login` por la IP local y recibían 401; el acceso desde localhost funcionaba. La configuración activa de cookies ya admitía HTTP local. Se detectó y reprodujo una inconsistencia: las cuentas nominales normalizaban mayúsculas y espacios externos en el usuario, pero el administrador configurado exigía coincidencia exacta. El registro no conserva las credenciales introducidas, de modo que no acredita cuál fue la diferencia concreta escrita en el teléfono.
+
+El login aplica ahora la misma normalización a ambas rutas y conserva el nombre canónico en la sesión y auditoría. No cambia contraseñas, hashes, roles ni la comprobación exacta de la contraseña. El formulario evita autocorrección y mayúsculas automáticas en usuario y contraseña, incluso con la contraseña visible.
+
+Cuatro regresiones fallaron antes de la corrección. Después pasaron 34 pruebas de autenticación, cuentas y permisos, incluidas seis nuevas. Dos recorridos Playwright pasaron contra un conjunto PostgreSQL/Docker independiente, accedido mediante la IP LAN por HTTP: usuario en mayúsculas y con espacios externos, login a 390 × 844, persistencia tras recargar y cierre de sesión, además de la regresión de una respuesta retrasada tras logout. El navegador de esas pruebas fue Chromium; la comprobación final desde el iPhone corresponde al dispositivo del usuario. La compilación, lint y enlaces se verificaron antes de entregar la corrección.
+
 ## Al modificar una funcionalidad
 
 Mantén URLs, errores, contratos y migraciones compatibles salvo cambio explícito. Coloca las reglas reutilizables fuera de los handlers HTTP; los componentes no deben conocer secretos ni proveedores remotos. Añade una prueba cuando exista una regla, regresión o condición de carrera relevante, y ejecuta el recorrido afectado en el conjunto desechable antes de actualizar la instalación de trabajo.

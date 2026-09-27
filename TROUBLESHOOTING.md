@@ -166,6 +166,8 @@ Separa los tres resultados: 401 por credenciales o sesión, 403 por permisos y f
 En el navegador, revisa el estado de `/api/login` y luego `/api/auth/session`; no copies el contenido de `Set-Cookie`.
 Una cookie `HttpOnly` no se consulta mediante JavaScript; puede inspeccionarse en las herramientas del navegador.
 
+Si `POST /api/login` ya devuelve 401, la petición llegó al servidor y las credenciales fueron rechazadas antes de crear la cookie. Si login devuelve 200 pero la consulta de sesión devuelve 401, revisa la cookie y el origen. Son problemas distintos. El usuario se compara sin distinguir mayúsculas ni espacios externos, también para el administrador configurado; la contraseña conserva exactamente sus mayúsculas, espacios y caracteres. El formulario desactiva autocorrección y mayúsculas automáticas del teclado, incluso al mostrar la contraseña. Ante un rechazo persistente, comprueba el usuario guardado por el navegador para esa dirección y escribe las credenciales localmente; no las publiques.
+
 Mensajes reales de [autenticación](src/api/routes/auth.py) y [dependencias](src/api/dependencies.py):
 
 ```text
