@@ -96,6 +96,7 @@ once/                              # Raíz de trabajo y contexto de Docker
 ├── pyproject.toml                 # Reglas y formato de Ruff
 ├── alembic.ini                    # Configuración de migraciones
 ├── iniciar-once.cmd               # Inicio asistido en Windows
+├── compartir-once.cmd             # Acceso LAN asistido; sin argumentos conserva la ventana
 ├── .github/workflows/ci.yml        # Verificación manual mediante workflow_dispatch
 ├── src/                           # Backend y trabajador comparten este paquete
 │   ├── main.py                    # Composición ASGI, rutas y ciclo de vida
@@ -143,16 +144,26 @@ once/                              # Raíz de trabajo y contexto de Docker
 │   └── e2e/                       # Recorridos de navegador con Playwright
 ├── scripts/                       # Ayudantes operativos y de desarrollo
 │   ├── dev.py                     # Carga controlada del entorno para desarrollo
+│   ├── network.py                 # Modo HTTP LAN/local, estado y recuperación de configuración
+│   ├── network_addresses.py       # IPv4 privadas candidatas según adaptadores y ruta activa
+│   ├── network-firewall.ps1        # Regla Windows optativa, propia y limitada a LocalSubnet
 │   ├── backup.py                  # Copia PostgreSQL y manifiesto de integridad
 │   ├── restore_backup.py          # Restauración con comprobaciones de destino
 │   ├── media_backup.py            # Copia y restauración de recursos locales
 │   └── prepare_qa.py              # Preparación de una instalación desechable
 ├── tests/                         # Pruebas de API, dominio, importación y concurrencia
+│   ├── test_network_addresses.py  # Descubrimiento simulado para Windows, Linux y macOS
+│   ├── test_network_commands.py   # Cambios de modo, guardas y recuperación sin Docker real
+│   ├── test_network_review.py     # Casos de contexto remoto, sintaxis de entorno y salud
+│   └── network-firewall.Tests.ps1 # Pester: operaciones de firewall sustituidas por mocks
 ├── docs/                          # Manuales especializados y registro de verificaciones
+│   └── deployment/network.md      # Compartir, restringir, comprobar y trasladar acceso LAN
 ├── data/legacy/                   # Referencias heredadas, no fuente activa de producción
 ├── .local/                        # Copias, ensayos y artefactos locales no publicados
 └── .venv/                         # Entorno Python local; no necesario dentro de Docker
 ```
+
+Los asistentes de red son herramientas del anfitrión, no servicios adicionales de Compose. `network.py` solo administra `FRONTEND_BIND`, `FRONTEND_PORT` y `COOKIE_SECURE` para HTTP; mantiene `/api` relativo y descubre direcciones sin fijarlas en el código. Comprueba el motor local y la pertenencia de los contenedores, rechaza overrides de Compose y sintaxis multilínea de `.env`, e inicia la recuperación de la configuración previa si falla la aplicación del cambio. `status` también verifica la instalación antes de informar su puerto. El firewall es una acción optativa de Windows; esta capa no configura TLS ni transforma una dirección candidata en una garantía de acceso remoto.
 
 ## 4. Una sincronización de principio a fin
 

@@ -61,19 +61,17 @@ En Windows puedes usar [iniciar-once.cmd](iniciar-once.cmd). Si algo falla, ve a
 
 ### Compartir la partida en tu red
 
-En el `.env` de esa instalación:
-
-```dotenv
-FRONTEND_BIND=0.0.0.0
-FRONTEND_PORT=80
-COOKIE_SECURE=false
-```
+Con Python 3.12 y Docker funcionando, desde la raíz:
 
 ```sh
-docker compose up -d --no-deps --wait api frontend
+python -m scripts.network lan
 ```
 
-Abre `http://IP_DEL_EQUIPO/explore` desde otro dispositivo. Obtén la IP con `ipconfig` en Windows o `ip -4 address` en Linux. Cada dispositivo inicia su propia sesión administrativa. El host y Docker deben permanecer encendidos; el firewall debe admitir el puerto desde la red local. Los detalles de LAN están en [SETUP](SETUP.md).
+En Windows también puedes abrir [compartir-once.cmd](compartir-once.cmd). El asistente prepara la configuración si falta, construye las imágenes con la caché disponible y muestra las direcciones de tu equipo; no necesitas fijar una IP en el proyecto. Abre la dirección mostrada, con `/explore`, desde un dispositivo de la misma red. El equipo anfitrión y Docker deben permanecer encendidos.
+
+Usa `python -m scripts.network lan --port 8080` si necesitas otro puerto, `python -m scripts.network status` para consultar y `python -m scripts.network local` para volver al acceso exclusivo del anfitrión. La opción `--firewall` permite gestionar la regla de Windows desde una terminal administradora; no es necesaria si el acceso ya funciona. Los atajos son `make lan`, `make local` y `make network-status`, o sus equivalentes `python -m scripts.dev`.
+
+Este modo usa HTTP local; la detección de una dirección no garantiza que el router o el firewall permitan conectarse. Clonar el código no copia los datos, y dos clones en el mismo Docker no crean volúmenes independientes por cambiar de carpeta. Consulta el [manual de red local](docs/deployment/network.md) para permisos, comprobación, vuelta atrás y traslado.
 
 ## Qué puedes hacer hoy
 

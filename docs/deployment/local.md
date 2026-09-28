@@ -45,9 +45,21 @@ Para pgAdmin, configura su correo y contraseña y ejecuta `docker compose --prof
 
 ### Acceso desde otros equipos de la red local
 
-En el `.env` de esta instalación, establece `FRONTEND_BIND=0.0.0.0` y conserva `FRONTEND_PORT=80`. Aplica el cambio con `docker compose up -d --no-deps --wait frontend`. Desde otro equipo conectado a la misma red, abre `http://IP_DEL_EQUIPO/explore` para explorar o `http://IP_DEL_EQUIPO/` para iniciar sesión. Usa la dirección IPv4 del adaptador activo, no `localhost`, que en cada dispositivo identifica al propio dispositivo. Si el puerto elegido es distinto de 80, añádelo a la dirección.
+Desde la raíz, con Python 3.12 y Docker funcionando:
 
-Docker y el equipo anfitrión deben permanecer encendidos. El firewall de Windows debe permitir el puerto TCP elegido desde la subred local; una regla existente de Docker puede cubrirlo. El frontend conserva `/api` bajo el mismo origen y `COOKIE_SECURE=false` para este acceso por HTTP. No hace falta publicar el puerto de PostgreSQL ni el de la API. Para volver a acceso exclusivo del anfitrión, usa `FRONTEND_BIND=127.0.0.1` y aplica de nuevo el mismo comando. El valor por defecto del proyecto sigue siendo `127.0.0.1`.
+```sh
+python -m scripts.network lan
+```
+
+En Windows también puedes abrir [compartir-once.cmd](../../compartir-once.cmd). El asistente configura una instalación nueva si falta `.env` y la terminal es interactiva; conserva los secretos existentes. Construye API y frontend con caché y muestra las IPv4 privadas candidatas del equipo. En una instalación nueva arranca el conjunto; en una existente adapta API/frontend con su dependencia de base, sin cambiar deliberadamente el estado del trabajador.
+
+Abre la dirección mostrada desde otro equipo conectado a la misma red: `http://IP_DEL_EQUIPO/explore` para explorar o `http://IP_DEL_EQUIPO/` para iniciar sesión. El marcador representa la dirección descubierta en tu ejecución. Usa `lan --port 8080` para cambiar el puerto y añádelo a la dirección. No necesitas fijar la IP del anfitrión en el código: `/api` mantiene cliente y API bajo el mismo origen.
+
+Consulta con `python -m scripts.network status` y vuelve al acceso exclusivo del anfitrión con `python -m scripts.network local`. Los equivalentes son `python -m scripts.dev lan`, `local` y `network-status`, o `make lan`, `make local` y `make network-status`. `--dry-run` permite revisar el cambio; `--no-build` solo debe usarse con imágenes ya actualizadas.
+
+Docker y el anfitrión deben permanecer encendidos. Si el firewall impide conectarse, Windows admite `lan --firewall` desde una terminal administradora: crea una regla propia TCP, limitada al puerto seleccionado y a `LocalSubnet`, para cualquier perfil de red. `local --firewall` retira esa regla. Sin la opción, el asistente no modifica el firewall. No publica PostgreSQL ni la API en la LAN; ambos modos mantienen `COOKIE_SECURE=false` porque utilizan HTTP.
+
+Una respuesta HTTP local correcta no demuestra acceso desde otro dispositivo. Consulta el [manual de red](network.md) para restricciones de router, permisos, recuperación y cambio de equipo. Dos clones en el mismo Docker no obtienen volúmenes independientes por estar en carpetas distintas; el asistente detiene la operación si los contenedores pertenecen a otra carpeta. Para llevar datos a otra máquina utiliza [transferencia](transfer.md). Este asistente no configura un despliegue HTTPS público.
 
 ## Actualizar, detener y volver atrás
 

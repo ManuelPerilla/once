@@ -15,6 +15,7 @@ Esta guía distingue procedimientos reproducibles, referencia de herramientas y 
 | Integración del despliegue | `scripts.smoke_test` | Proxy, cookie, catálogos, documentación y cierre de sesión | Todos los recorridos de la interfaz |
 | Navegador | Playwright 1.63, Chromium | Interacciones, navegación, estados y tamaños de pantalla | Compatibilidad certificada con todos los navegadores |
 | Rendimiento | `scripts.benchmark_automation` | Latencias ASGI y PostgreSQL bajo carga sintética | Latencia de Internet, renderizado o capacidad sostenida de producción |
+| Asistentes de red | pytest y Pester 3.4 en Windows | Descubrimiento, guardas, recuperación y contrato de la regla con dependencias simuladas | Conectividad real entre dispositivos o políticas efectivas del router/firewall |
 
 Las versiones Python se fijan en [requirements-dev.txt](requirements-dev.txt); las del frontend se resuelven con [package-lock.json](frontend/package-lock.json).
 `package.json` admite Oxlint desde `^1.81.0`; el lock vigente fija 1.82.0, que es la versión reproducida por `npm ci`.
@@ -103,6 +104,43 @@ docker run --rm --network none once-api-tests python -m ruff format --check src 
 La imagen de pruebas usa SQLite en memoria y no monta el volumen de PostgreSQL de trabajo.
 `--network none` refuerza que la ejecución no dependa de proveedores remotos; la compilación sí necesita descargar dependencias.
 La imagen `runtime` no incluye las herramientas de pruebas. El comprobador de documentación se ejecuta desde el repositorio completo.
+
+## Cómo comprobar los asistentes de red
+
+Las pruebas Python de LAN utilizan adaptadores, rutas, respuestas HTTP y comandos Docker simulados. No habilitan puertos, modifican el firewall del anfitrión ni consultan proveedores. Los archivos de configuración de cada caso se crean en directorios temporales de pruebas.
+
+Desde una terminal de pruebas con el Python de `.venv`, fija las dos conexiones en memoria para que la infraestructura compartida de pytest no apunte a una base persistente. PowerShell:
+
+```powershell
+$env:DATABASE_URL = 'sqlite://'
+$env:TEST_DATABASE_URL = 'sqlite://'
+python -m pytest -q -p no:cacheprovider --basetemp=.local/pytest-network-docs tests/test_network_addresses.py tests/test_network_commands.py tests/test_network_review.py
+Remove-Item Env:DATABASE_URL, Env:TEST_DATABASE_URL
+```
+
+En POSIX, las asignaciones pueden limitarse a la ejecución:
+
+```sh
+DATABASE_URL=sqlite:// TEST_DATABASE_URL=sqlite:// python -m pytest -q -p no:cacheprovider --basetemp=.local/pytest-network-docs tests/test_network_addresses.py tests/test_network_commands.py tests/test_network_review.py
+```
+
+| Archivo | Contratos cubiertos |
+| --- | --- |
+| [test_network_addresses.py](tests/test_network_addresses.py) | Interfaces activas de Windows/Linux/macOS, prioridad de ruta, exclusión de VPN/virtuales identificables, RFC1918, duplicados y comandos no disponibles |
+| [test_network_commands.py](tests/test_network_commands.py) | Modos LAN/local, opciones, primer arranque, preservación de configuración, fallos de aplicación, identidad Compose y atajos |
+| [test_network_review.py](tests/test_network_review.py) | Contexto Docker remoto, overrides Compose, pertenencia al consultar estado, contenido multilínea y respuesta de salud inválida |
+| [network-firewall.Tests.ps1](tests/network-firewall.Tests.ps1) | TCP/puerto/LocalSubnet, repetición sin duplicados, retirada selectiva, colisiones y ausencia de permiso administrativo |
+
+La suite de firewall se ejecuta **por separado en Windows PowerShell con Pester 3.4.0**. Ese es el contrato usado para estos ejemplos; otras versiones de Pester no están verificadas. Comprueba primero qué versión tienes, sin instalar ni actualizar módulos globales como parte de una prueba:
+
+```powershell
+Get-Module -ListAvailable Pester | Select-Object Name, Version
+powershell.exe -NoProfile -Command "Import-Module Pester -RequiredVersion 3.4.0 -ErrorAction Stop; Invoke-Pester -Script './tests/network-firewall.Tests.ps1' -EnableExit"
+```
+
+Las operaciones `Get-NetFirewallRule`, `New-NetFirewallRule`, `Set-NetFirewallRule` y `Remove-NetFirewallRule`, además de la comprobación administrativa, se sustituyen por mocks. Esta suite no necesita elevar la terminal ni debe sustituirse por una ejecución del asistente con `--firewall`. Si Pester 3.4.0 no está instalado, informa que esta selección no se ejecutó; una suite Python correcta no la reemplaza.
+
+El ensayo real es distinto: desde una instalación de prueba identificada, aplica `lan`, consulta `status`, abre la dirección anunciada desde un segundo dispositivo y comprueba exploración e inicio/cierre de sesión. Después vuelve a `local` y comprueba que el acceso se limite al anfitrión. Registra revisión, sistema operativo, puerto, operaciones realizadas y resultado; una propuesta de ensayo no es evidencia de ejecución. Revisa [el procedimiento de red](docs/deployment/network.md) antes de aplicarlo: el asistente usa la identidad Compose principal y no acepta overrides para redirigirlo a `once-qa`; un clon adicional en el mismo motor tampoco crea volúmenes independientes por sí solo.
 
 ## Cómo comprobar PostgreSQL sin tocar los datos de trabajo
 
@@ -235,6 +273,7 @@ En el JSON, compara `sizes[].baseline` y `sizes[].ingesting`: `routes` contiene 
 | Tablas, filtros o procedencia | `test_standing_context.py`, `test_match_provenance.py`; unitarias y recorridos públicos afectados |
 | Consultas o esquema | `test_query_loading.py`, pruebas PostgreSQL y ensayo de migración según el cambio |
 | Contenedores o proxy | Compilación, salud, smoke y navegador contra el conjunto QA |
+| Asistentes de red o firewall | `test_network_addresses.py`, `test_network_commands.py`, `test_network_review.py`; Pester en Windows y ensayo LAN separado cuando corresponda |
 
 Por ejemplo: `python -m pytest -q tests/test_api_football_quota.py tests/test_provider_preview.py`.
 Una selección sirve para iterar; la entrega incorpora además las comprobaciones compartidas que puedan verse afectadas.

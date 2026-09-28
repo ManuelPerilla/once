@@ -25,6 +25,9 @@ TASKS = {
     "down": "Detener Docker conservando los volúmenes",
     "logs": "Consultar los últimos 100 registros de Docker",
     "health": "Consultar /api/health del frontend local",
+    "lan": "Compartir ONCE por HTTP en la red local y mostrar sus direcciones",
+    "local": "Restringir ONCE por HTTP a este equipo",
+    "network-status": "Consultar configuración, puerto publicado y salud de la red",
     "lint": "Comprobar Ruff, formato y Oxlint",
     "test-api": "Ejecutar pytest en base aislada",
     "test-web": "Ejecutar pruebas unitarias del frontend",
@@ -133,7 +136,11 @@ def check_test_database(value):
 
 
 def execute(task, env_file, extra=()):
-    if task == "configure":
+    if task in {"lan", "local", "network-status"}:
+        if env_file.resolve() != (ROOT / ".env").resolve():
+            raise ValueError("Los modos de red usan el .env del proyecto, no --env-file.")
+        python("-m", "scripts.network", "status" if task == "network-status" else task, *extra)
+    elif task == "configure":
         python("-m", "src.configure")
     elif task == "backend-install":
         python("-m", "pip", "install", "-r", "requirements-dev.txt")
@@ -226,8 +233,8 @@ def main():
     parser.add_argument("task", nargs="?", default="help", choices=["help", *TASKS])
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     args, extra = parser.parse_known_args()
-    if extra and args.task != "benchmark":
-        parser.error("Solo benchmark acepta argumentos adicionales.")
+    if extra and args.task not in {"benchmark", "lan", "local", "network-status"}:
+        parser.error("Solo benchmark y las tareas de red aceptan argumentos adicionales.")
     if args.task == "help":
         for task, description in TASKS.items():
             print(f"{task:18} {description}")

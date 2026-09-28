@@ -126,6 +126,9 @@ El [Makefile](Makefile) delega en [scripts/dev.py](scripts/dev.py), que usa argu
 | `make down` | Detiene el proyecto principal | Conserva volúmenes; interrumpe servicio |
 | `make logs` | Últimos 100 registros por servicio | Revisar antes de compartir |
 | `make health` | Consulta `/api/health` local | No comprueba la cuenta del proveedor |
+| `make lan` | Comparte el frontend por HTTP y muestra direcciones candidatas | Construye imágenes y adapta API/frontend; requiere Docker local |
+| `make local` | Restringe el frontend HTTP a loopback | Conserva el puerto elegido; `COOKIE_SECURE=false` por tratarse de HTTP |
+| `make network-status` | Compara `.env`, pertenencia de contenedores, puerto publicado y salud HTTP | Consulta de la instalación; no prueba acceso desde otro dispositivo |
 | `make lint` | Ruff, formato y Oxlint | No modifica archivos |
 | `make test-api` | Ejecuta pytest | SQLite en memoria o destino externo `_test` |
 | `make test-web` | Unitarias del frontend | No inicia navegador |
@@ -138,6 +141,19 @@ El [Makefile](Makefile) delega en [scripts/dev.py](scripts/dev.py), que usa argu
 | `make ci-local` | Check, build y navegador QA | Detiene QA al terminar; no dispara Actions |
 | `make backup` | Copia PostgreSQL y medios | Pausar escrituras antes; no copia código ni `.env` |
 | `make benchmark` | Muestra ayuda del banco de carga | Necesita parámetros y su confirmación para ejecutar carga |
+
+Los atajos de red delegan en [scripts/network.py](scripts/network.py) y aceptan argumentos mediante `ARGS`. No necesitan las dependencias del backend; sí Python 3.12 y, al aplicar o consultar la instalación, el motor Docker local activo:
+
+```sh
+make lan ARGS="--port 8080 --dry-run"
+make lan ARGS="--port 8080"
+make network-status
+make local
+```
+
+Sin GNU Make, los equivalentes son `python -m scripts.dev lan --port 8080 --dry-run`, `python -m scripts.dev lan --port 8080`, `python -m scripts.dev network-status` y `python -m scripts.dev local`. `network-status` no acepta opciones de modificación. `--no-build` solo se usa cuando las imágenes ya contienen el código actual. En Windows, `--firewall` es optativo y requiere una terminal administradora para gestionar exclusivamente la regla propia del puerto y la subred local.
+
+Estos comandos usan el `.env` de la raíz, editan solo sus tres variables públicas de red y rechazan valores multilínea, comillas sin cerrar, overrides de Compose o contenedores pertenecientes a otra carpeta. No uses `--env-file` para intentar seleccionar otra instalación desde estos atajos. Consulta [red local](docs/deployment/network.md) para primer arranque, cambio de puerto, alcance del firewall y recuperación; al contribuir a esas herramientas, ejecuta también las [pruebas de red](TESTING.md#cómo-comprobar-los-asistentes-de-red).
 
 Para un archivo distinto en los procesos manuales:
 

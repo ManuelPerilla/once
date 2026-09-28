@@ -20,6 +20,7 @@ La colección sigue Diátaxis: explicación para comprender, tutorial para apren
 | Necesito… | Documento |
 | --- | --- |
 | Encender o actualizar ONCE | [Despliegue local](deployment/local.md) |
+| Compartir por LAN, elegir puerto o volver al acceso privado | [Red local portable](deployment/network.md) |
 | Publicar en un servidor con dominio y HTTPS | [Despliegue en servidor](deployment/server.md) |
 | Cambiar de ordenador o recuperar una copia | [Transferencia y restauración](deployment/transfer.md) |
 | Retomar GitHub o preparar una entrega | [GitHub y entregas](deployment/github.md) |

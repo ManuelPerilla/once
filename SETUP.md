@@ -233,7 +233,22 @@ El [Makefile](Makefile) ofrece atajos opcionales como `make up`, `make api`, `ma
 
 ## 6. Red local, parada y continuidad
 
-Para compartir la interfaz en su LAN por HTTP, configure `FRONTEND_BIND=0.0.0.0` y `COOKIE_SECURE=false`; aplique `docker compose up -d --no-deps --wait api frontend`. Abra `http://IP_DEL_EQUIPO/` desde el otro dispositivo y añada el puerto si es distinto de 80. El proxy conserva el mismo origen; `CORS_ORIGINS` solo necesita ajustes si separa el origen del cliente y la API. Permita el puerto elegido en el firewall de la red privada; no necesita publicar API ni PostgreSQL. Vuelva a `127.0.0.1` para restringir el acceso al anfitrión.
+Con Python 3.12 y el motor Docker local activo, ejecute desde la raíz:
+
+```sh
+python -m scripts.network lan
+python -m scripts.network status
+```
+
+En Windows, [compartir-once.cmd](compartir-once.cmd) ejecuta `lan` al abrirlo sin argumentos y mantiene la ventana abierta para leer el resultado. Si falta `.env`, el asistente lo configura de forma interactiva; sin terminal interactiva indica ejecutar primero `python -m src.configure`. Si va a restaurar una base existente, complete antes el [procedimiento de transferencia](docs/deployment/transfer.md).
+
+El comando construye API y frontend con caché, levanta los cuatro servicios en una instalación nueva y adapta API/frontend en una existente, respetando el estado del trabajador. Solo administra `FRONTEND_BIND`, `FRONTEND_PORT` y `COOKIE_SECURE`; conserva los secretos existentes y usa `/api` en el mismo origen. Las direcciones se descubren en cada equipo, sin guardarlas en el proyecto. Abra la que muestre su ejecución desde otro dispositivo de la misma red, por ejemplo `http://IP_DEL_EQUIPO/explore`.
+
+Use `lan --port 8080` para elegir puerto, `lan --dry-run` para ver los cambios sin aplicarlos y `local` para volver a loopback. `--no-build` solo corresponde a imágenes que ya incluyan el código actual. En Windows, `lan --firewall` necesita una terminal administradora y habilita únicamente TCP al puerto elegido desde `LocalSubnet`, para cualquier perfil de red; `local --firewall` retira la regla propia. Sin esta opción no modifica el firewall. No publica PostgreSQL ni la API en la LAN.
+
+La comprobación HTTP local no prueba el acceso desde otro dispositivo. El [manual de red](docs/deployment/network.md) explica detección, firewall, restricciones de router, guardas de Compose y recuperación. El asistente usa HTTP y fija `COOKIE_SECURE=false` en ambos modos: no es un configurador de producción HTTPS. Están disponibles `make lan`, `make local`, `make network-status` y los equivalentes `python -m scripts.dev lan|local|network-status`, ejecutando una tarea cada vez.
+
+Dos clones en un mismo motor Docker comparten la identidad Compose predeterminada y no obtienen datos independientes por estar en carpetas distintas. El asistente rechaza la colisión con contenedores de otra carpeta; una instalación adicional requiere definir deliberadamente otro proyecto, volúmenes y puertos.
 
 `docker compose down` detiene la instalación conservando volúmenes. **No utilice `--volumes` sobre la instalación de trabajo.** En modo manual, detenga cada proceso con `Ctrl+C`; PostgreSQL y sus archivos conservan los datos. Mantenga la misma configuración cuando reinicie.
 
